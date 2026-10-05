@@ -59,6 +59,12 @@ public sealed partial class BoardStore
         if(status=="current")guests=guests.Where(g=>g.CheckedOutAtUtc==null);
         if(status=="checkedout")guests=guests.Where(g=>g.CheckedOutAtUtc!=null);
         int total = unfiltered?await guests.CountAsync():await query.CountAsync();
+        // The count and page share a read snapshot. An empty count is definitive;
+        // do not scan the full history again to fetch a page that cannot exist.
+        if(total==0){
+            await tx.CommitAsync();
+            return new([],0,1,pageSize);
+        }
         page = Math.Min(page, Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)));
         var ids = unfiltered?await guests.OrderByDescending(g=>g.Id).Select(g=>g.Id).Skip((page-1)*pageSize).Take(pageSize).ToListAsync()
             :await query.Select(g=>g.Id).Skip((page-1)*pageSize).Take(pageSize).ToListAsync();

@@ -85,6 +85,8 @@ try
     Assert((await store.SearchStaysAsync("测试住客")).Total == 1 && (await store.SearchStaysAsync("401")).Total == 1, "search by name and room");
     Assert((await store.SearchStaysAsync("test-phone")).Total == 1 && (await store.SearchStaysAsync("TEST-ONLY-001")).Total == 1, "case-insensitive phone and document search");
     Assert((await store.SearchStaysAsync("不存在")).Total == 0, "no-result search");
+    var emptyPage=await store.SearchStaysAsync("无",page:100,pageSize:10);
+    Assert(emptyPage.Total==0 && emptyPage.Records.Count==0 && emptyPage.Page==1 && emptyPage.PageSize==10,"empty short search returns a normalized empty page");
     await Change(401, "CheckOut");
     Assert((await store.SearchStaysAsync(status:"checkedout")).Total == 1 && (await store.SearchStaysAsync(status:"current")).Total == 0, "checkout preserves searchable historical record");
     await Change(401, "Clean");var again=await Room(401);
