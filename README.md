@@ -15,6 +15,7 @@
 - [Windows 安装说明](RoomDesk/installer/INSTALL-WINDOWS.txt)
 - [单前台场景测试报告](RoomDesk/FRONT-DESK-TEST-REPORT.md)
 - [发布说明](RoomDesk/installer/RELEASE-NOTES.md)
+- [Windows 发布验证结果](RoomDesk/installer/RELEASE-VALIDATION.md)
 
 发布流水线在 Windows Server 2022 上测试、编译、生成安装 EXE，并检查安装/启动/重装/卸载。Windows 10 的实际电脑、显示缩放、流畅度和硬件设备仍需实机验收。数据位于 `%LOCALAPPDATA%\RoomDeskPrototype\rooms-v1.db`，升级、卸载均保留数据。仓库不包含使用者的本地数据库。
 
