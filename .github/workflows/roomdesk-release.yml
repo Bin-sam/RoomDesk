@@ -62,6 +62,29 @@ jobs:
           Copy-Item RoomDesk/installer/INSTALL-WINDOWS.txt RoomDesk/artifacts/windows-x64/
           Copy-Item RoomDesk/installer/licenses RoomDesk/artifacts/windows-x64/licenses -Recurse
           Compress-Archive -Path RoomDesk/artifacts/windows-x64/* -DestinationPath RoomDesk/artifacts/release/RoomDesk-Portable-0.7.0-win-x64.zip
+      - name: Generate checksums
+        shell: pwsh
+        run: |
+          $lines = Get-ChildItem RoomDesk/artifacts/release -File | Sort-Object Name | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
+          $lines | Set-Content RoomDesk/artifacts/release/SHA256SUMS.txt -Encoding utf8NoBOM
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RoomDesk-Windows-x64
+          path: RoomDesk/artifacts/release/*
+          if-no-files-found: error
+  installer:
+    needs: windows
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: RoomDesk-Windows-x64
+          path: RoomDesk/artifacts/release
       - name: Test installation, launch, reinstall and uninstall
         timeout-minutes: 6
         shell: pwsh
@@ -73,25 +96,20 @@ jobs:
           name: RoomDesk-installer-diagnostics
           path: ${{ runner.temp }}/roomdesk-*.log
           if-no-files-found: ignore
-      - name: Generate checksums
-        shell: pwsh
-        run: |
-          $lines = Get-ChildItem RoomDesk/artifacts/release -File | Sort-Object Name | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
-          $lines | Set-Content RoomDesk/artifacts/release/SHA256SUMS.txt -Encoding utf8NoBOM
-      - uses: actions/upload-artifact@v4
+  publish:
+    needs: [windows, installer]
+    if: startsWith(github.ref, 'refs/tags/roomdesk-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: RoomDesk-Windows-x64
-          path: RoomDesk/artifacts/release/*
-          if-no-files-found: error
+          path: RoomDesk/artifacts/release
       - name: Publish GitHub prerelease
-        if: startsWith(github.ref, 'refs/tags/roomdesk-v')
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          $files = (Get-ChildItem RoomDesk/artifacts/release -File).FullName
-          gh release create $env:RELEASE_TAG @files --verify-tag --prerelease --title "RoomDesk 0.7.0 — Windows preview" --notes-file RoomDesk/installer/RELEASE-NOTES.md
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    permissions:
-      contents: write
+        run: gh release create "$RELEASE_TAG" RoomDesk/artifacts/release/* --verify-tag --prerelease --title "RoomDesk 0.7.0 — Windows preview" --notes-file RoomDesk/installer/RELEASE-NOTES.md
