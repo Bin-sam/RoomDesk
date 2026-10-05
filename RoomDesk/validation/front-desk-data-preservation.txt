@@ -1,0 +1,1 @@
+PASS: original live SQLite logical contents unchanged; compared SHA-256 of SQLite iterdump before/after UI tests.

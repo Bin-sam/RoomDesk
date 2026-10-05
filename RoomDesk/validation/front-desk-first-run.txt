@@ -1,0 +1,44 @@
+PASS: FD01 开班查看24间房及未设置密码状态
+PASS: FD02 未设密码不能导出和备份
+PASS: FD03 设置操作密码
+PASS: FD04 新增601房默认188.88元且先待清扫
+PASS: FD05 重复房号不增加房间
+PASS: FD06 脏房拒绝入住和预订
+PASS: FD07 清扫后预订、取消预订恢复可入住
+PASS: FD08 姓名空白、价格缺失/负数/三位小数不落库
+PASS: FD09 实际168.50入住，显示住客且默认价保留188.88
+PASS: FD10 在住房禁止再次入住、维修、停用
+PASS: FD11 在住清扫不丢失住客或生成新账单
+PASS: FD12 修改默认价不会改写已登记168.50
+PASS: FD13 在住记录禁止删除
+PASS: FD14 退房后去除住客、记录归档、房间待清扫
+PASS: FD15 连点退房不生成多条记录；未清扫不能换下一位
+PASS: FD16 老客姓名及证件片段匹配到同一个人
+PASS: FD17 双击/两个旧页面同时入住只有一笔成功
+PASS: FD18 旧页面退房不能误退新客
+PASS: FD19 同房两位客人历史独立、姓名和状态搜索正确
+PASS: FD20 零元赠房计为已登记，分毫准确合计456.38
+PASS: FD21 强制结束进程后房态住客金额恢复，旧令牌失效
+PASS: FD22 单分钟包含00秒和最后一毫秒，合计367.50
+PASS: FD23 跨午夜含结束分钟，排除下一分钟
+PASS: FD24 空时段0笔0元，倒置/无效日期被拒绝
+PASS: FD25 错误密码不能导出或删除，账单不变
+PASS: FD26 交班CSV与页面3笔367.50一致
+PASS: FD27 CSV中文/逗号/换行完整、公式前缀安全
+PASS: FD28 备份包含4笔记录且SQLite完整
+PASS: FD29 删除归档记录后历史/匹配/账单同步移除，在住不变
+PASS: FD30 已删除数据保留审计标记
+PASS: FD31 备份实际恢复后4笔记录和367.50账单一致
+PASS: FD32 维修不能入住，恢复后须清扫再入住
+PASS: FD33 停用不能入住，恢复后待清扫
+FAIL: FD34 缺失售价字段不能意外把默认价改为零 ('/api/rooms/25/price', 200, b'{"ok":true}')
+Traceback (most recent call last):
+  File "/Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Tests/front_desk_scenarios.py", line 156, in <module>
+    test('FD34 缺失售价字段不能意外把默认价改为零',lambda:(post(f'/api/rooms/{r["id"]}/price',{'version':r['version']},409),ensure(room(601)['defaultPriceCents']==19900)))
+  File "/Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Tests/front_desk_scenarios.py", line 46, in test
+    try: fn()
+  File "/Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Tests/front_desk_scenarios.py", line 156, in <lambda>
+    test('FD34 缺失售价字段不能意外把默认价改为零',lambda:(post(f'/api/rooms/{r["id"]}/price',{'version':r['version']},409),ensure(room(601)['defaultPriceCents']==19900)))
+  File "/Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Tests/front_desk_scenarios.py", line 41, in post
+    assert code == expected, (path, code, data)
+AssertionError: ('/api/rooms/25/price', 200, b'{"ok":true}')

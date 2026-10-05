@@ -1,0 +1,17 @@
+栖间 RoomDesk 0.6 预览版 — Windows 安装说明
+
+1. 运行 RoomDesk-Setup-0.6.0-win-x64.exe，按安装向导完成安装。
+   适用 Windows 10/11 x64；目标 Windows 10 22H2。包含 .NET 运行环境。
+   向导为英文，程序界面为中文。无需管理员权限。
+2. 从开始菜单或桌面打开 RoomDesk。
+3. 默认数据：%LOCALAPPDATA%\RoomDeskPrototype\rooms-v1.db。
+   升级和卸载均保留该数据目录；升级前建议在“数据与安全”中备份。
+4. 首次使用含 24 间示例房；部分示例房显示在住但没有入住登记。
+   这是功能验证原型，请先核对并配置房间、默认价格和操作密码。
+5. 当前价格是每次入住总价，账单不是收款流水。
+   实体身份证读卡器尚未适配，只有通用键盘文本输入入口。
+6. 本安装包没有代码签名证书。发布的 SHA256SUMS.txt 可用于校验下载完整性。
+   Windows 10 实际安装、缩放、界面流畅度和硬件接入仍需目标电脑验收。
+
+许可证：基于 Lantel C# 模型，保留上游 MIT LICENSE。
+上游：https://github.com/GideonLartey/hotel-management-system

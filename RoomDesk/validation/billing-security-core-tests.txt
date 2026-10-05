@@ -1,0 +1,118 @@
+PASS: 24 sample rooms / 3 floors
+PASS: initial counters, including dirty maintenance room
+PASS: initialization is idempotent
+PASS: check-in requires guest information
+PASS: whitespace-only guest rejected
+PASS: oversized guest field rejected
+PASS: document number requires type
+PASS: invalid registration leaves room and guest data unchanged
+PASS: check-in persists
+PASS: guest and occupancy saved together
+PASS: guest persists on reopen
+PASS: duplicate registration rejected
+PASS: stale request cannot overwrite guest
+PASS: stale update rejected
+PASS: board includes current guest name
+PASS: legacy occupied room indicates missing registration
+PASS: occupancy and cleanliness remain independent
+PASS: occupied room cannot enter maintenance
+PASS: checkout archives guest and clears current registration
+PASS: checkout clears guest from board while keeping history
+PASS: checkout produces dirty vacant room
+PASS: dirty room cannot check in
+PASS: dirty room cannot reserve
+PASS: reserved room cannot be disabled
+PASS: reservation cancellation and arrival transitions
+PASS: maintenance blocks check-in
+PASS: restored maintenance room needs cleaning
+PASS: restored disabled room needs cleaning
+PASS: missing room rejected
+PASS: undefined action rejected
+PASS: duplicate room rejected
+PASS: invalid floor rejected
+PASS: invalid type rejected
+PASS: rejected actions do not write history
+PASS: new room starts dirty
+PASS: new service instance reads saved state
+PASS: simultaneous stale writes have exactly one winner
+PASS: online backup includes rooms and committed history
+PASS: backup SQLite integrity_check
+PASS: v0.1 additive migration preserves existing room data and is repeatable
+PASS: all registration fields persist after schema upgrade
+PASS: online backup includes guest registrations
+PASS: saved registration appears in history
+PASS: search by name and room
+PASS: case-insensitive phone and document search
+PASS: no-result search
+PASS: checkout preserves searchable historical record
+PASS: history pagination and newest-first order
+PASS: second page preserves previous stay
+PASS: CSV UTF-8 BOM and Chinese headers
+PASS: CSV quotes multiline fields and neutralizes formula input
+PASS: CSV follows applied search/status filters
+PASS: historical records persist on reopen
+PASS: empty CSV still contains header
+PASS: invalid history filter rejected
+PASS: invalid history page rejected
+PASS: CSV exports all matching rows beyond first page
+PASS: history name lookup includes checked-out guests
+PASS: partial case-insensitive document lookup
+PASS: history suggestions capped at eight
+PASS: blank and no-match suggestions empty
+PASS: unknown lookup field rejected
+PASS: same-name guests stay distinct; repeated document uses latest contact details
+PASS: suggestion display masks middle of document
+PASS: undocumented same-name guests with different phones stay distinct
+PASS: keyboard Tab-separated identity input
+PASS: newline input normalizes lowercase x
+PASS: labelled reader text
+PASS: structured reader JSON input
+PASS: incomplete/ambiguous reader data rejected
+PASS: incomplete/ambiguous reader data rejected
+PASS: incomplete/ambiguous reader data rejected
+PASS: incomplete/ambiguous reader data rejected
+PASS: incomplete/ambiguous reader data rejected
+PASS: incomplete/ambiguous reader data rejected
+PASS: incomplete/ambiguous reader data rejected
+PASS: incomplete/ambiguous reader data rejected
+PASS: reader parsing does not create a stay or change room state
+PASS: fresh database has no default password
+PASS: unset password blocks record export
+PASS: unset password blocks backup
+PASS: short password rejected
+PASS: password configuration survives reopening
+PASS: wrong password blocks export
+PASS: wrong password blocks backup
+PASS: password change requires current password
+PASS: old password invalid after change
+PASS: password stored as salted hash, not plaintext
+PASS: wrong password counted
+PASS: wrong password counted
+PASS: wrong password counted
+PASS: wrong password counted
+PASS: wrong password counted
+PASS: lockout persists across service instances
+PASS: room default price persists exactly
+PASS: stale default price change rejected
+PASS: fractional cent rejected
+PASS: negative price rejected
+PASS: new check-in requires sale price
+PASS: default price change does not rewrite existing sale price
+PASS: minute inclusive boundaries and exact cents, unknown prices counted separately
+PASS: zero-price stays are valid; following minute included only when requested
+PASS: malformed bill date rejected
+PASS: reversed bill range rejected
+PASS: bill export requires password
+PASS: bill CSV has filtered rows and exact total
+PASS: current stay cannot be deleted
+PASS: deletion requires password
+PASS: deleted archived stay excluded from bill totals
+PASS: deleted stay excluded from search
+PASS: deleted guest excluded from suggestions
+PASS: deletion is retained internally for recovery and audit
+PASS: bill preview limit does not limit total count or money
+PASS: bill CSV exports all rows beyond preview limit
+PASS: protected backup retains security configuration
+PASS: old schema upgrades without resetting rooms or installing a default password
+BENCHMARK Mac/shared core only: 300-room snapshot, warmed, 20 runs, median=1.71ms p95=1.80ms. NOT a Windows UI benchmark.
+RESULT: 116 integration checks passed. OS=Darwin 24.6.0 Darwin Kernel Version 24.6.0: Tue Jul 21 20:51:32 PDT 2026; root:xnu-11417.140.69.711.44~1/RELEASE_ARM64_T8112

@@ -1,0 +1,77 @@
+name: RoomDesk Windows release
+on:
+  workflow_dispatch:
+  push:
+    tags: ['roomdesk-v*']
+env:
+  PYTHONUTF8: '1'
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test shared core
+        shell: pwsh
+        run: |
+          dotnet run --project RoomDesk/Tests/Tests.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Test HTTP and front desk scenarios
+        shell: pwsh
+        run: |
+          dotnet build RoomDesk/Preview/Preview.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $dotnet = (Get-Command dotnet).Source
+          python RoomDesk/Tests/api_smoke.py $dotnet
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python RoomDesk/Tests/front_desk_scenarios.py $dotnet
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Publish self-contained Windows app
+        shell: pwsh
+        run: |
+          dotnet publish RoomDesk/Windows/Windows.csproj -c Release -r win-x64 --self-contained true -p:Version=0.6.0 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o RoomDesk/artifacts/windows-x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build installer and portable archive
+        shell: pwsh
+        run: |
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $compiler)) { throw 'Inno Setup compiler is unavailable on this runner.' }
+          & $compiler /DAppVersion=0.6.0 RoomDesk/installer/RoomDesk.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item LICENSE RoomDesk/artifacts/windows-x64/LICENSE
+          Copy-Item RoomDesk/installer/INSTALL-WINDOWS.txt RoomDesk/artifacts/windows-x64/
+          Copy-Item RoomDesk/installer/licenses RoomDesk/artifacts/windows-x64/licenses -Recurse
+          Compress-Archive -Path RoomDesk/artifacts/windows-x64/* -DestinationPath RoomDesk/artifacts/release/RoomDesk-Portable-0.6.0-win-x64.zip
+      - name: Test installation, launch, reinstall and uninstall
+        shell: pwsh
+        run: ./RoomDesk/installer/smoke-install.ps1 -Installer "$PWD/RoomDesk/artifacts/release/RoomDesk-Setup-0.6.0-win-x64.exe"
+      - name: Generate checksums
+        shell: pwsh
+        run: |
+          $lines = Get-ChildItem RoomDesk/artifacts/release -File | Sort-Object Name | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
+          $lines | Set-Content RoomDesk/artifacts/release/SHA256SUMS.txt -Encoding utf8NoBOM
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RoomDesk-Windows-x64
+          path: RoomDesk/artifacts/release/*
+          if-no-files-found: error
+      - name: Publish GitHub prerelease
+        if: startsWith(github.ref, 'refs/tags/roomdesk-v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $files = (Get-ChildItem RoomDesk/artifacts/release -File).FullName
+          gh release create $env:RELEASE_TAG @files --verify-tag --prerelease --title "RoomDesk 0.6.0 — Windows preview" --notes-file RoomDesk/installer/RELEASE-NOTES.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    permissions:
+      contents: write

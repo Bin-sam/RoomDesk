@@ -1,0 +1,56 @@
+PASS: 24 sample rooms / 3 floors
+PASS: initial counters, including dirty maintenance room
+PASS: initialization is idempotent
+PASS: check-in requires guest information
+PASS: whitespace-only guest rejected
+PASS: oversized guest field rejected
+PASS: document number requires type
+PASS: invalid registration leaves room and guest data unchanged
+PASS: check-in persists
+PASS: guest and occupancy saved together
+PASS: guest persists on reopen
+PASS: duplicate registration rejected
+PASS: stale request cannot overwrite guest
+PASS: stale update rejected
+PASS: occupancy and cleanliness remain independent
+PASS: occupied room cannot enter maintenance
+PASS: checkout archives guest and clears current registration
+PASS: checkout produces dirty vacant room
+PASS: dirty room cannot check in
+PASS: dirty room cannot reserve
+PASS: reserved room cannot be disabled
+PASS: reservation cancellation and arrival transitions
+PASS: maintenance blocks check-in
+PASS: restored maintenance room needs cleaning
+PASS: restored disabled room needs cleaning
+PASS: missing room rejected
+PASS: undefined action rejected
+PASS: duplicate room rejected
+PASS: invalid floor rejected
+PASS: invalid type rejected
+PASS: rejected actions do not write history
+PASS: new room starts dirty
+PASS: new service instance reads saved state
+PASS: simultaneous stale writes have exactly one winner
+PASS: online backup includes rooms and committed history
+PASS: backup SQLite integrity_check
+PASS: v0.1 additive migration preserves existing room data and is repeatable
+PASS: all registration fields persist after schema upgrade
+PASS: online backup includes guest registrations
+PASS: saved registration appears in history
+PASS: search by name and room
+PASS: case-insensitive phone and document search
+PASS: no-result search
+PASS: checkout preserves searchable historical record
+PASS: history pagination and newest-first order
+PASS: second page preserves previous stay
+PASS: CSV UTF-8 BOM and Chinese headers
+PASS: CSV quotes multiline fields and neutralizes formula input
+PASS: CSV follows applied search/status filters
+PASS: historical records persist on reopen
+PASS: empty CSV still contains header
+PASS: invalid history filter rejected
+PASS: invalid history page rejected
+PASS: CSV exports all matching rows beyond first page
+BENCHMARK Mac/shared core only: 300-room snapshot, warmed, 20 runs, median=4.11ms p95=6.51ms. NOT a Windows UI benchmark.
+RESULT: 54 integration checks passed. OS=Darwin 24.6.0 Darwin Kernel Version 24.6.0: Tue Jul 21 20:51:32 PDT 2026; root:xnu-11417.140.69.711.44~1/RELEASE_ARM64_T8112

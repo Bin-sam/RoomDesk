@@ -1,0 +1,34 @@
+
+欢迎使用 .NET 8.0!
+---------------------
+SDK 版本: 8.0.425
+
+遥测
+---------
+.NET 工具会收集用法数据，帮助我们改善你的体验。它由 Microsoft 收集并与社区共享。你可通过使用喜欢的 shell 将 DOTNET_CLI_TELEMETRY_OPTOUT 环境变量设置为 "1" 或 "true" 来选择退出遥测。
+
+阅读有关 .NET CLI 工具遥测的更多信息: https://aka.ms/dotnet-cli-telemetry
+
+----------------
+已安装 ASP.NET Core HTTPS 开发证书。
+若要信任该证书，请运行 "dotnet dev-certs https --trust"
+了解 HTTPS: https://aka.ms/dotnet-https
+
+----------------
+编写第一个应用: https://aka.ms/dotnet-hello-world
+了解新增功能: https://aka.ms/dotnet-whats-new
+浏览文档: https://aka.ms/dotnet-docs
+报告问题并在 GitHub 上查找来源: https://github.com/dotnet/core
+使用 "dotnet --help" 查看可用命令或访问: https://aka.ms/dotnet-cli
+--------------------------------------------------------------------------------------
+  Determining projects to restore...
+  Restored /Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Windows/Windows.csproj (in 6.66 sec).
+  Restored /Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Core/Core.csproj (in 6.66 sec).
+  Core -> /Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Core/bin/Release/net8.0/Core.dll
+  Windows -> /Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Windows/bin/Release/net8.0-windows/RoomDesk.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:11.59

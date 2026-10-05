@@ -1,0 +1,17 @@
+PASS: real HTTP server loads SQLite sample data
+PASS: static resource /
+PASS: static resource /app.js
+PASS: static resource /style.css
+PASS: mutation without local token blocked
+PASS: check-in via HTTP
+PASS: stale HTTP request rejected
+PASS: checkout via HTTP
+PASS: dirty room cannot check in through API
+PASS: add room through API
+PASS: duplicate room HTTP conflict
+PASS: HTTP backup is valid SQLite
+PASS: backup contains newly added room
+PASS: state survives complete server process restart
+PASS: history persists and excludes rejected mutations
+PASS: previous process token invalidated after restart
+RESULT: 16 HTTP/process integration checks passed. No UI assertions.

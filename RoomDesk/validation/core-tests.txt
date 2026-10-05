@@ -1,0 +1,28 @@
+PASS: 24 sample rooms / 3 floors
+PASS: initial counters, including dirty maintenance room
+PASS: initialization is idempotent
+PASS: check-in persists
+PASS: stale update rejected
+PASS: occupancy and cleanliness remain independent
+PASS: occupied room cannot enter maintenance
+PASS: checkout produces dirty vacant room
+PASS: dirty room cannot check in
+PASS: dirty room cannot reserve
+PASS: reserved room cannot be disabled
+PASS: reservation cancellation and arrival transitions
+PASS: maintenance blocks check-in
+PASS: restored maintenance room needs cleaning
+PASS: restored disabled room needs cleaning
+PASS: missing room rejected
+PASS: undefined action rejected
+PASS: duplicate room rejected
+PASS: invalid floor rejected
+PASS: invalid type rejected
+PASS: rejected actions do not write history
+PASS: new room starts dirty
+PASS: new service instance reads saved state
+PASS: simultaneous stale writes have exactly one winner
+PASS: online backup includes rooms and committed history
+PASS: backup SQLite integrity_check
+BENCHMARK Mac/shared core only: 300-room snapshot, warmed, 20 runs, median=4.17ms p95=7.00ms. NOT a Windows UI benchmark.
+RESULT: 26 integration checks passed. OS=Darwin 24.6.0 Darwin Kernel Version 24.6.0: Tue Jul 21 20:51:32 PDT 2026; root:xnu-11417.140.69.711.44~1/RELEASE_ARM64_T8112

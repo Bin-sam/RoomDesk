@@ -1,0 +1,6 @@
+  Determining projects to restore...
+  Restored /Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Core/Core.csproj (in 3.68 sec).
+  1 of 2 projects are up-to-date for restore.
+  Core -> /Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Core/bin/Release/net8.0/Core.dll
+  Windows -> /Users/zoubin/Documents/Codex/2026-10-04/w/outputs/hotel-room-prototype/RoomDesk/Windows/bin/Release/net8.0-windows/win-x64/RoomDesk.dll
+  Windows -> /Users/zoubin/Documents/Codex/2026-10-04/w/outputs/RoomDesk-Windows-x64/

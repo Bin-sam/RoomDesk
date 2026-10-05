@@ -120,3 +120,12 @@ LantelHotelApp/installer/
 # Rider
 .idea/
 *.sln.iml
+**/bin/
+**/obj/
+RoomDesk/artifacts/
+*.db-shm
+*.db-wal
+
+# Python test caches
+__pycache__/
+*.pyc
