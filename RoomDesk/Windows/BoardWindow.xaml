@@ -18,8 +18,11 @@
    <TextBlock Text="{Binding ResultText}" Foreground="#52675A" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0"/>
   </DockPanel>
   <Grid Grid.Row="3"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="232"/></Grid.ColumnDefinitions>
-   <ScrollViewer x:Name="BoardArea" SizeChanged="Board_SizeChanged" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="2">
-    <ItemsControl ItemsSource="{Binding Floors}"><ItemsControl.ItemTemplate><DataTemplate>
+   <ListBox x:Name="BoardArea" SizeChanged="Board_SizeChanged" ItemsSource="{Binding Floors}" Background="Transparent" BorderThickness="0" Padding="2"
+     ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="True"
+     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" VirtualizingPanel.ScrollUnit="Pixel" VirtualizingPanel.CacheLength="0.5">
+    <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Focusable" Value="False"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ListBoxItem"><ContentPresenter/></ControlTemplate></Setter.Value></Setter></Style></ListBox.ItemContainerStyle>
+    <ListBox.ItemTemplate><DataTemplate>
      <Grid Margin="0,2,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="38"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
       <StackPanel VerticalAlignment="Center" Margin="0,0,7,0"><TextBlock Text="{Binding Title}" FontSize="18" FontWeight="Bold" TextAlignment="Center"/><TextBlock Text="楼" FontSize="11" TextAlignment="Center" Margin="0,3,0,0"/></StackPanel>
       <ItemsControl Grid.Column="1" ItemsSource="{Binding Rooms}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="{Binding RoomColumns, RelativeSource={RelativeSource AncestorType=Window}}"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate>
@@ -37,8 +40,8 @@
        </Button>
       </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
      </Grid>
-    </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-   </ScrollViewer>
+    </DataTemplate></ListBox.ItemTemplate>
+   </ListBox>
    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="14,0,0,0"><Border Background="White" BorderBrush="#D9E3DC" BorderThickness="1" CornerRadius="9" Padding="16" VerticalAlignment="Top"><StackPanel>
     <TextBlock Text="房间详情" FontSize="12" Foreground="#52695C"/><TextBlock Text="{Binding Selected.Number, TargetNullValue=请选择房间}" FontSize="40" FontWeight="Bold" Margin="0,10,0,6"/>
     <TextBlock Text="{Binding Selected.Subtitle}" Foreground="#596E60" FontSize="12"/><TextBlock Text="{Binding Selected.Status}" Foreground="{Binding Selected.Color}" FontSize="20" FontWeight="Bold" Margin="0,12,0,8"/>
