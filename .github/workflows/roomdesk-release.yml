@@ -41,16 +41,6 @@ jobs:
         run: |
           dotnet publish RoomDesk/Windows/Windows.csproj -c Release -r win-x64 --self-contained true -p:Version=0.7.0 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o RoomDesk/artifacts/windows-x64
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Gate million-row latency and native WPF memory
-        shell: pwsh
-        run: ./RoomDesk/installer/performance-gate.ps1 -Application "$PWD/RoomDesk/artifacts/windows-x64/RoomDesk.exe"
-      - name: Preserve Windows performance evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: RoomDesk-Windows-performance
-          path: RoomDesk/artifacts/validation/*.json
-          if-no-files-found: warn
       - name: Build installer and portable archive
         shell: pwsh
         run: |
@@ -72,6 +62,32 @@ jobs:
           name: RoomDesk-Windows-x64
           path: RoomDesk/artifacts/release/*
           if-no-files-found: error
+  performance:
+    needs: windows
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/download-artifact@v4
+        with:
+          name: RoomDesk-Windows-x64
+          path: RoomDesk/artifacts/release
+      - name: Extract the built application
+        shell: pwsh
+        run: Expand-Archive RoomDesk/artifacts/release/RoomDesk-Portable-0.7.0-win-x64.zip RoomDesk/artifacts/portable
+      - name: Gate million-row latency and native WPF memory
+        shell: pwsh
+        run: ./RoomDesk/installer/performance-gate.ps1 -Application "$PWD/RoomDesk/artifacts/portable/RoomDesk.exe"
+      - name: Preserve Windows performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RoomDesk-Windows-performance
+          path: RoomDesk/artifacts/validation/*.json
+          if-no-files-found: warn
   installer:
     needs: windows
     runs-on: windows-2022
@@ -97,7 +113,7 @@ jobs:
           path: ${{ runner.temp }}/roomdesk-*.log
           if-no-files-found: ignore
   publish:
-    needs: [windows, installer]
+    needs: [windows, installer, performance]
     if: startsWith(github.ref, 'refs/tags/roomdesk-v')
     runs-on: ubuntu-latest
     permissions:
