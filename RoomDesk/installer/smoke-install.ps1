@@ -4,9 +4,24 @@ $target = Join-Path $env:RUNNER_TEMP 'RoomDesk-installed'
 $data = Join-Path $env:LOCALAPPDATA 'RoomDeskPrototype\rooms-v1.db'
 if (Test-Path $data) { throw 'Refusing to test with an existing user database.' }
 $log = Join-Path $env:RUNNER_TEMP 'roomdesk-install.log'
+function Wait-InstallerProcess($process, [string]$phase, [string]$logPath) {
+    # Wait for the installer itself with a deadline, not an unbounded process-tree wait.
+    for($attempt=0;$attempt -lt 12;$attempt++){
+        if($process.WaitForExit(10000)){
+            if($process.ExitCode -ne 0){throw "$phase failed: $($process.ExitCode)"}
+            Write-Output "PASS: $phase exited successfully."
+            return
+        }
+        Write-Output "$phase still running ($((1+$attempt)*10) seconds)."
+        if(Test-Path $logPath){Get-Content $logPath -Tail 8 | Write-Output}
+    }
+    try { $process.Kill($true); $process.WaitForExit() } catch {}
+    throw "$phase timed out after 120 seconds."
+}
 function Install-RoomDesk {
-    $p = Start-Process -FilePath $Installer -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',"/DIR=`"$target`"","/LOG=`"$log`"") -Wait -PassThru
-    if ($p.ExitCode -ne 0) { throw "Installer failed: $($p.ExitCode)" }
+    Write-Output 'Starting silent installation.'
+    $p = Start-Process -FilePath $Installer -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',"/DIR=`"$target`"","/LOG=`"$log`"") -PassThru
+    Wait-InstallerProcess $p 'Installer' $log
     if (!(Test-Path "$target\RoomDesk.exe")) { throw 'Installed EXE is missing.' }
 }
 Install-RoomDesk
@@ -34,8 +49,9 @@ $hash = (Get-FileHash $data -Algorithm SHA256).Hash
 Install-RoomDesk
 if ((Get-FileHash $data -Algorithm SHA256).Hash -ne $hash) { throw 'Reinstall modified the user database.' }
 Write-Output 'PASS: reinstall preserves user database.'
-$p = Start-Process "$target\unins000.exe" -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -Wait -PassThru
-if ($p.ExitCode -ne 0) { throw "Uninstall failed: $($p.ExitCode)" }
+$uninstallLog=Join-Path $env:RUNNER_TEMP 'roomdesk-uninstall.log'
+$p = Start-Process "$target\unins000.exe" -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/LOG=`"$uninstallLog`"") -PassThru
+Wait-InstallerProcess $p 'Uninstaller' $uninstallLog
 if (Test-Path "$target\RoomDesk.exe") { throw 'Uninstall left installed EXE behind.' }
 if (!(Test-Path $data) -or (Get-FileHash $data -Algorithm SHA256).Hash -ne $hash) { throw 'Uninstall did not preserve user database.' }
 Write-Output 'PASS: uninstall removes app and preserves user database.'

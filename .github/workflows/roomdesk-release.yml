@@ -63,8 +63,16 @@ jobs:
           Copy-Item RoomDesk/installer/licenses RoomDesk/artifacts/windows-x64/licenses -Recurse
           Compress-Archive -Path RoomDesk/artifacts/windows-x64/* -DestinationPath RoomDesk/artifacts/release/RoomDesk-Portable-0.7.0-win-x64.zip
       - name: Test installation, launch, reinstall and uninstall
+        timeout-minutes: 6
         shell: pwsh
         run: ./RoomDesk/installer/smoke-install.ps1 -Installer "$PWD/RoomDesk/artifacts/release/RoomDesk-Setup-0.7.0-win-x64.exe"
+      - name: Preserve installer diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RoomDesk-installer-diagnostics
+          path: ${{ runner.temp }}/roomdesk-*.log
+          if-no-files-found: ignore
       - name: Generate checksums
         shell: pwsh
         run: |
