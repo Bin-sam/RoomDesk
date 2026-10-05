@@ -230,7 +230,7 @@ with tempfile.TemporaryDirectory(prefix="roomdesk-api-") as temp:
                 if pending.poll() is None: pending.kill();pending.wait(timeout=15)
             reopened=start();check(reopened["hotelName"]=="HTTP酒店测试","uncommitted transaction rolled back after SIGKILL")
             stop()
-        with sqlite3.connect(dbpath) as integrity:
+        with closing(sqlite3.connect(dbpath)) as integrity:
             check(integrity.execute("PRAGMA integrity_check").fetchone()[0]=="ok","database integrity survives crash tests")
         print(f"RESULT: {checks} HTTP/process integration checks passed. No UI assertions.")
     finally:
