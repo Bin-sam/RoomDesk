@@ -132,7 +132,7 @@ try
     var large = new BoardStore(Path.Combine(root, "large.db")); await large.InitializeAsync(300); await large.ReadAsync();
     var timings = new List<double>();
     for (int i = 0; i < 20; i++) { var sw = Stopwatch.StartNew(); var snapshot = await large.ReadAsync(); sw.Stop(); if(snapshot.Rooms.Count != 300)throw new Exception("incomplete snapshot"); timings.Add(sw.Elapsed.TotalMilliseconds); }
-    timings.Sort(); Console.WriteLine($"BENCHMARK Mac/shared core only: 300-room snapshot, warmed, 20 runs, median={timings[10]:F2}ms p95={timings[18]:F2}ms. NOT a Windows UI benchmark.");
+    timings.Sort(); Console.WriteLine($"BENCHMARK shared core only: 300-room snapshot, warmed, 20 runs, median={timings[10]:F2}ms p95={timings[18]:F2}ms. NOT a Windows UI benchmark.");
     Console.WriteLine($"RESULT: {passed} integration checks passed. OS={System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
 }
 finally { SqliteConnection.ClearAllPools(); Directory.Delete(root, true); }

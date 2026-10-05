@@ -20,7 +20,10 @@ try {
         if ($p.MainWindowHandle -ne 0 -and (Test-Path $data)) { $ready = $true; break }
     }
     if (!$ready) { throw 'App did not create a window and database within 30 seconds.' }
-    Write-Output 'PASS: installed EXE starts and creates a WPF window and database on Windows runner.'
+    # A window/file can appear before async initialization completes; wait for all seed rows.
+    python "$PSScriptRoot/wait-initialized.py" $data
+    if ($LASTEXITCODE -ne 0) { throw 'Installed application database initialization did not complete.' }
+    Write-Output 'PASS: installed EXE starts and initializes 24 rooms with a WPF window on Windows runner.'
 } finally {
     if (!$p.HasExited) {
         $null = $p.CloseMainWindow()

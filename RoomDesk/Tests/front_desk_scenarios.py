@@ -8,6 +8,7 @@ import json
 import pathlib
 import socket
 import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import tempfile
@@ -30,6 +31,10 @@ def http(path, body=None):
     try:
         with urllib.request.urlopen(req, timeout=15) as r: return r.status, r.read()
     except urllib.error.HTTPError as e: return e.code, e.read()
+
+def sql_scalar(path, query, parameters=()):
+    with closing(sqlite3.connect(path)) as connection:
+        return connection.execute(query, parameters).fetchone()[0]
 
 def get(path):
     code, data = http(path)
@@ -127,7 +132,7 @@ with tempfile.TemporaryDirectory(prefix='roomdesk-frontdesk-') as temp:
         test('FD21 强制结束进程后房态住客金额恢复，旧令牌失效',lambda:(ensure(board()['rooms']==saved['rooms']),ensure(len(stays())==4),ensure(old_token!=token)))
         # Clock fixtures: 23:59:00, 23:59:59.999, 00:00:00, 00:01:00 Beijing.
         stop()
-        with sqlite3.connect(db) as c:
+        with closing(sqlite3.connect(db)) as c, c:
             ids=[r[0] for r in c.execute('SELECT Id FROM GuestRegistrations ORDER BY Id')]
             for ident,stamp in zip(ids,['2026-10-04 15:59:00','2026-10-04 15:59:59.999','2026-10-04 16:00:00','2026-10-04 16:01:00']):
                 c.execute('UPDATE GuestRegistrations SET CheckedInAtUtc=? WHERE Id=?',(stamp,ident))
@@ -141,11 +146,11 @@ with tempfile.TemporaryDirectory(prefix='roomdesk-frontdesk-') as temp:
         rows=exported('/api/stays/export',{'password':PWD})
         test('FD27 CSV中文/逗号/换行完整、公式前缀安全',lambda:(ensure(len(rows)==5),ensure(any(r[2]=='\'=测试,"客人"\n换行' for r in rows[1:]))))
         backup=post('/api/backup',{'password':PWD})['path']
-        test('FD28 备份包含4笔记录且SQLite完整',lambda:ensure(sqlite3.connect(backup).execute('PRAGMA integrity_check').fetchone()[0]=='ok'))
+        test('FD28 备份包含4笔记录且SQLite完整',lambda:ensure(sql_scalar(backup, 'PRAGMA integrity_check')=='ok'))
         test('FD29 删除归档记录后历史/匹配/账单同步移除，在住不变',lambda:(post(f'/api/stays/{first_id}/delete',{'password':PWD}),ensure(len(stays())==3),ensure(get('/api/guests/suggestions?query=ONLY-A&field=document')==[]),ensure(bill()['totalCents']==19900),ensure(room(601)['guestName']=='前台测试乙')))
-        test('FD30 已删除数据保留审计标记',lambda:ensure(sqlite3.connect(db).execute('SELECT DeletedAtUtc FROM GuestRegistrations WHERE Id=?',(first_id,)).fetchone()[0] is not None))
+        test('FD30 已删除数据保留审计标记',lambda:ensure(sql_scalar(db, 'SELECT DeletedAtUtc FROM GuestRegistrations WHERE Id=?', (first_id,)) is not None))
         stop()
-        with sqlite3.connect(backup) as source,sqlite3.connect(db) as target: source.backup(target)
+        with closing(sqlite3.connect(backup)) as source, closing(sqlite3.connect(db)) as target: source.backup(target)
         start()
         test('FD31 备份实际恢复后4笔记录和367.50账单一致',lambda:(ensure(len(stays())==4),ensure(bill()['totalCents']==36750),ensure(get('/api/security')['configured'])))
         action(601,'CheckOut');action(601,'StartMaintenance')

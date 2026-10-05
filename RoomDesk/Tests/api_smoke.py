@@ -7,6 +7,7 @@ import csv
 import io
 import pathlib
 import sqlite3
+from contextlib import closing
 import subprocess
 import sys
 import tempfile
@@ -105,7 +106,7 @@ with tempfile.TemporaryDirectory(prefix="roomdesk-api-") as temp:
         check(request("/api/rooms", {"number": 401, "floor": 4, "type": "Deluxe"}, token)[0] == 409, "duplicate room HTTP conflict")
         status, body = request("/api/backup", {"password":password}, token)
         backup = json.loads(body)["path"]
-        with sqlite3.connect(backup) as connection:
+        with closing(sqlite3.connect(backup)) as connection:
             check(status == 200 and connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok", "HTTP backup is valid SQLite")
             check(connection.execute('SELECT count(*) FROM Rooms').fetchone()[0] == 25, "backup contains newly added room")
         # Leave room 401 occupied to verify registration survives a full process restart.
