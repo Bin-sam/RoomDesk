@@ -10,13 +10,18 @@ public enum RoomAction { Reserve, CancelReservation, CheckIn, CheckOut, MarkDirt
 
 public sealed class BoardState
 {
+    public bool IsDeleted { get; set; }
     public int RoomId { get; set; }
     public Room Room { get; set; } = null!;
     public Occupancy Occupancy { get; set; }
     public ServiceState Service { get; set; }
     public bool IsClean { get; set; } = true;
     public long Version { get; set; }
+    public string? TypeName { get; set; }
     public long? DefaultPriceCents { get; set; }
+    public string? ReservationName { get; set; }
+    public string? ReservationPhone { get; set; }
+    public string? ReservationPlatform { get; set; }
 }
 
 public sealed class RoomActivity
@@ -30,7 +35,9 @@ public sealed class RoomActivity
 }
 
 public sealed record GuestInput(string Name, string? Phone = null, string? DocumentType = null,
-    string? DocumentNumber = null, string? Notes = null, decimal? SalePrice = null);
+    string? DocumentNumber = null, string? Notes = null, decimal? SalePrice = null, string? Platform = null);
+
+public sealed record ReservationInput(string Name, string? Platform = null, string? Phone = null);
 
 public sealed class GuestRegistration
 {
@@ -41,6 +48,7 @@ public sealed class GuestRegistration
     public string DocumentType { get; set; } = "";
     public string DocumentNumber { get; set; } = "";
     public string Notes { get; set; } = "";
+    public string Platform { get; set; } = "";
     public DateTime CheckedInAtUtc { get; set; }
     public DateTime? CheckedOutAtUtc { get; set; }
     public long? SalePriceCents { get; set; }
@@ -50,6 +58,9 @@ public sealed class GuestRegistration
 
 public sealed class BoardDbContext(DbContextOptions<HotelDbContext> options) : HotelDbContext(options)
 {
+    public DbSet<HotelSetting> HotelSettings => Set<HotelSetting>();
+    public DbSet<RoomTypePreset> RoomTypePresets => Set<RoomTypePreset>();
+    public DbSet<PlatformPreset> PlatformPresets => Set<PlatformPreset>();
     public DbSet<SecuritySetting> SecuritySettings => Set<SecuritySetting>();
     public DbSet<BoardState> BoardStates => Set<BoardState>();
     public DbSet<RoomActivity> Activities => Set<RoomActivity>();
@@ -57,10 +68,14 @@ public sealed class BoardDbContext(DbContextOptions<HotelDbContext> options) : H
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<RoomTypePreset>().HasIndex(p => p.NameKey).IsUnique();
+        builder.Entity<PlatformPreset>().HasIndex(p => p.NameKey).IsUnique();
+        builder.Entity<BoardState>().HasQueryFilter(s=>!s.IsDeleted);
         builder.Entity<BoardState>().HasKey(s => s.RoomId);
         builder.Entity<BoardState>().Property(s => s.Version).IsConcurrencyToken();
         builder.Entity<BoardState>().HasOne(s => s.Room).WithOne().HasForeignKey<BoardState>(s => s.RoomId);
         builder.Entity<RoomActivity>().HasIndex(a => a.AtUtc);
+        builder.Entity<GuestRegistration>().Property(g => g.Platform).HasDefaultValue("");
         builder.Entity<GuestRegistration>().HasOne<Room>().WithMany().HasForeignKey(g => g.RoomId);
         builder.Entity<GuestRegistration>().HasIndex(g => g.RoomId).IsUnique().HasFilter("CheckedOutAtUtc IS NULL");
     }
@@ -70,14 +85,17 @@ public sealed record RoomCard(int Id, int Number, int Floor, string Type, string
     string StatusKey, string Occupancy, string Service, bool IsClean, long Version,
     IReadOnlyList<ActionOption> Actions)
 {
+    public bool IsDeleted { get; init; }
     public string? GuestName { get; init; }
+    public string? ReservationName { get; init; }
     public long? DefaultPriceCents { get; init; }
     public decimal? DefaultPrice => DefaultPriceCents / 100m;
     public string DefaultPriceText => BoardStore.PriceText(DefaultPriceCents);
     public string GuestLabel => Occupancy == nameof(Core.Occupancy.Occupied)
-        ? "入住人：" + (string.IsNullOrWhiteSpace(GuestName) ? "未登记" : GuestName) : "";
+        ? "入住人：" + (string.IsNullOrWhiteSpace(GuestName) ? "未登记" : GuestName)
+        : Occupancy == nameof(Core.Occupancy.Reserved) ? "预订人：" + (string.IsNullOrWhiteSpace(ReservationName) ? "未登记" : ReservationName) : "";
     public string BoardCaption => Occupancy == nameof(Core.Occupancy.Occupied)
-        ? (string.IsNullOrWhiteSpace(GuestName) ? "未登记入住人" : GuestName) : IsClean ? "已清洁" : "等待清扫";
+        ? (string.IsNullOrWhiteSpace(GuestName) ? "未登记入住人" : GuestName) : Occupancy == nameof(Core.Occupancy.Reserved) ? (string.IsNullOrWhiteSpace(ReservationName) ? "未登记预订人" : ReservationName) : IsClean ? "已清洁" : "等待清扫";
     public string CleanLabel => IsClean ? "已清洁" : "待清扫";
     public string Subtitle => $"{Type} · {Floor} 楼";
     public string Color => StatusKey switch

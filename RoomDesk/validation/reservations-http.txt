@@ -1,0 +1,53 @@
+PASS: real HTTP server loads SQLite sample data
+PASS: static resource /
+PASS: static resource /app.js
+PASS: static resource /style.css
+PASS: legacy unprotected GET export removed
+PASS: unset operation password blocks backup
+PASS: initialize operation password
+PASS: mutation without local token blocked
+PASS: check-in via HTTP
+PASS: bare check-in cannot bypass registration
+PASS: saved guest can be read through API
+PASS: board API exposes current guest name
+PASS: stale HTTP request rejected
+PASS: checkout via HTTP
+PASS: checkout removes guest from board API
+PASS: dirty room cannot check in through API
+PASS: add room through API
+PASS: duplicate room HTTP conflict
+PASS: HTTP backup is valid SQLite
+PASS: backup contains newly added room
+PASS: state survives complete server process restart
+PASS: history persists and excludes rejected mutations
+PASS: guest registration survives full process restart
+PASS: previous process token invalidated after restart
+PASS: history includes both current and checked-out guests
+PASS: HTTP keyword and status filters combine
+PASS: history no-match response
+PASS: invalid history filter rejected over HTTP
+PASS: downloadable UTF-8 CSV matches filtered history
+PASS: CSV round-trip headers, guest and checkout status
+PASS: empty export has header only
+PASS: CSV response has download disposition and MIME type
+PASS: HTTP name suggestions include archived guest
+PASS: HTTP partial document lookup returns saved fields
+PASS: HTTP invalid suggestion field rejected
+PASS: HTTP blank query returns no candidates
+PASS: removed reader endpoint is unavailable
+PASS: record export cannot bypass password via API
+PASS: bill export cannot bypass password
+PASS: HTTP bill sums exact persisted sale prices
+PASS: protected bill CSV round-trips with exact total
+PASS: record deletion rejects missing password
+PASS: archived record deletion accepts correct password
+PASS: deleted record removed from history
+PASS: prepare clean room for reservation
+PASS: reservation requires guest name
+PASS: reservation accepts name platform and phone
+PASS: reservation name appears in room card API
+PASS: reservation information can be read for check-in
+PASS: reservation can check in with edited platform
+PASS: check-in platform and phone saved
+PASS: consumed reservation no longer returned
+RESULT: 52 HTTP/process integration checks passed. No UI assertions.

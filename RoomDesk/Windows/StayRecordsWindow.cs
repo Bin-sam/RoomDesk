@@ -36,9 +36,9 @@ public sealed class StayRecordsWindow : Window
         pagination.Children.Add(previous);pagination.Children.Add(next);bottom.Children.Add(pagination);
         bottom.Children.Add(new TextBlock { Text = "CSV 导出当前筛选的全部记录；时间均为北京时间。", Margin = new Thickness(0,12,0,0) });
         bottom.Children.Add(detail);DockPanel.SetDock(bottom,Dock.Bottom);layout.Children.Add(bottom);layout.Children.Add(grid);
-        foreach(var column in new[]{("房号","RoomNumber",65), ("姓名","Name",110), ("联系电话","Phone",120), ("入住时间","CheckInText",155), ("退房时间","CheckOutText",155), ("状态","Status",70), ("证件类型","DocumentType",80), ("证件号码","DocumentNumber",170), ("售出总价（元）","SalePriceText",120), ("备注","Notes",180)})
+        foreach(var column in new[]{("房号","RoomNumber",65), ("姓名","Name",110), ("联系电话","Phone",120), ("预订平台","Platform",85), ("入住时间","CheckInText",155), ("退房时间","CheckOutText",155), ("状态","Status",70), ("证件类型","DocumentType",80), ("证件号码","DocumentNumber",170), ("售出总价（元）","SalePriceText",120), ("备注","Notes",180)})
             grid.Columns.Add(new DataGridTextColumn { Header = column.Item1, Binding = new Binding(column.Item2), Width = column.Item3 });
-        grid.SelectionChanged += (_,_) => { if(grid.SelectedItem is StayRecord r)detail.Text=$"记录 #{r.Id} · {r.RoomNumber} 号房 · {r.Name}\n证件：{r.DocumentType} {r.DocumentNumber}\n备注：{r.Notes}";else detail.Text=""; };
+        grid.SelectionChanged += (_,_) => { if(grid.SelectedItem is StayRecord r)detail.Text=$"记录 #{r.Id} · {r.RoomNumber} 号房 · {r.Name}\n预订平台：{(string.IsNullOrEmpty(r.Platform)?"未登记":r.Platform)}\n证件：{r.DocumentType} {r.DocumentNumber}\n备注：{r.Notes}";else detail.Text=""; };
         find.Click += async (_,_)=> await SearchAsync();
         search.KeyDown += async (_,e)=>{if(e.Key==Key.Enter)await SearchAsync();};
         reset.Click += async (_,_)=>{search.Text="";status.SelectedIndex=0;await SearchAsync();};
@@ -70,7 +70,7 @@ public sealed class StayRecordsWindow : Window
         var dialog=new SaveFileDialog { Filter="CSV 文件 (*.csv)|*.csv", FileName=$"入住记录-{DateTime.Now:yyyyMMdd-HHmmss}.csv", DefaultExt=".csv" };
         if(dialog.ShowDialog(this)!=true)return;
         SetBusy(true);
-        try { await PasswordPrompt.RunAsync(this,store,"导出入住记录",async password=>{var data=await Task.Run(()=>store.ExportStaysCsvAsync(activeSearch,activeStatus,password));await System.IO.File.WriteAllBytesAsync(dialog.FileName,data);feedback.Text="已导出："+dialog.FileName;}); }
+        try { await PasswordPrompt.RunAsync(this,store,"导出入住记录",async password=>{await BoardStore.SaveExportAsync(await Task.Run(()=>store.OpenStaysCsvAsync(activeSearch,activeStatus,password)),dialog.FileName);feedback.Text="已导出："+dialog.FileName;}); }
         catch(Exception ex){feedback.Text=ex.Message;}
         finally{SetBusy(false);}
     }

@@ -29,10 +29,25 @@ public sealed partial class BoardStore
             await using(var reader=await cmd.ExecuteReaderAsync()) while(await reader.ReadAsync()) if(reader.GetString(1)==name) exists=true;
             if(!exists) await db.Database.ExecuteSqlRawAsync(sql);
         }
+        await Column("BoardStates","IsDeleted","ALTER TABLE BoardStates ADD COLUMN IsDeleted INTEGER NOT NULL DEFAULT 0");
+        await Column("BoardStates","TypeName","ALTER TABLE BoardStates ADD COLUMN TypeName TEXT NULL");
         await Column("BoardStates","DefaultPriceCents","ALTER TABLE BoardStates ADD COLUMN DefaultPriceCents INTEGER NULL");
         await Column("GuestRegistrations","SalePriceCents","ALTER TABLE GuestRegistrations ADD COLUMN SalePriceCents INTEGER NULL");
         await Column("GuestRegistrations","DeletedAtUtc","ALTER TABLE GuestRegistrations ADD COLUMN DeletedAtUtc TEXT NULL");
         await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_GuestRegistrations_BillTime ON GuestRegistrations(CheckedInAtUtc) WHERE DeletedAtUtc IS NULL");
+        await Column("BoardStates","ReservationName","ALTER TABLE BoardStates ADD COLUMN ReservationName TEXT NULL");
+        await Column("BoardStates","ReservationPhone","ALTER TABLE BoardStates ADD COLUMN ReservationPhone TEXT NULL");
+        await Column("BoardStates","ReservationPlatform","ALTER TABLE BoardStates ADD COLUMN ReservationPlatform TEXT NULL");
+        await Column("GuestRegistrations","Platform","ALTER TABLE GuestRegistrations ADD COLUMN Platform TEXT NOT NULL DEFAULT ''");
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS PlatformPresets (Id INTEGER PRIMARY KEY AUTOINCREMENT, Name TEXT NOT NULL, NameKey TEXT NOT NULL UNIQUE, IsHidden INTEGER NOT NULL DEFAULT 0)");
+        for (int i=0;i<DefaultPlatforms.Count;i++)
+            await db.Database.ExecuteSqlInterpolatedAsync($"INSERT OR IGNORE INTO PlatformPresets (Id,Name,NameKey,IsHidden) VALUES ({i-4},{DefaultPlatforms[i]},{DefaultPlatforms[i].ToUpperInvariant()},0)");
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS RoomTypePresets (Id INTEGER PRIMARY KEY AUTOINCREMENT, Name TEXT NOT NULL, NameKey TEXT NOT NULL UNIQUE, IsHidden INTEGER NOT NULL DEFAULT 0)");
+        for (int i=0;i<DefaultRoomTypes.Count;i++)
+            await db.Database.ExecuteSqlInterpolatedAsync($"INSERT OR IGNORE INTO RoomTypePresets (Id,Name,NameKey,IsHidden) VALUES ({i-5},{DefaultRoomTypes[i]},{DefaultRoomTypes[i].ToUpperInvariant()},0)");
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS HotelSettings (Id INTEGER PRIMARY KEY, Name TEXT NOT NULL)");
+        await db.Database.ExecuteSqlRawAsync("INSERT OR IGNORE INTO HotelSettings(Id,Name) VALUES(1,'栖间')");
+        await UpgradeSearchAsync(db);
         await tx.CommitAsync();
     }
     public async Task<bool> HasPasswordAsync() { await using var db=Open();return await db.SecuritySettings.AnyAsync(); }

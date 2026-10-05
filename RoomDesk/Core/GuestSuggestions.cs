@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 
 namespace RoomDesk.Core;
 
@@ -20,14 +21,16 @@ public sealed partial class BoardStore
         if (term.Length == 0) return [];
         if (term.Length > 100) throw new BoardException("查询内容最多 100 字。");
         await using var db = Open();
-        // Same document identifies one candidate. Without a document, keep same-name people with different phones separate.
-        var latestIds = db.GuestRegistrations.Where(g=>g.DeletedAtUtc==null).GroupBy(g => new {
-            Document = g.DocumentNumber.ToUpper(),
-            Type = g.DocumentNumber == "" ? "" : g.DocumentType,
-            Name = g.DocumentNumber == "" ? g.Name : "",
-            Phone = g.DocumentNumber == "" ? g.Phone : ""
-        }).Select(group => group.Max(g => g.Id));
-        var rows = db.GuestRegistrations.AsNoTracking().Where(g => latestIds.Contains(g.Id));
+        // Indexed anti-join finds the latest identity without grouping all history in memory or SQL temp tables.
+        var rows=db.GuestRegistrations.FromSqlRaw("""
+            SELECT g.* FROM GuestRegistrations g INDEXED BY IX_Stays_Suggest WHERE g.DeletedAtUtc IS NULL AND NOT EXISTS(
+              SELECT 1 FROM GuestRegistrations n WHERE n.DeletedAtUtc IS NULL AND n.Id>g.Id
+                AND upper(n.DocumentNumber)=upper(g.DocumentNumber)
+                AND CASE WHEN n.DocumentNumber='' THEN '' ELSE n.DocumentType END=CASE WHEN g.DocumentNumber='' THEN '' ELSE g.DocumentType END
+                AND CASE WHEN n.DocumentNumber='' THEN n.Name ELSE '' END=CASE WHEN g.DocumentNumber='' THEN g.Name ELSE '' END
+                AND CASE WHEN n.DocumentNumber='' THEN n.Phone ELSE '' END=CASE WHEN g.DocumentNumber='' THEN g.Phone ELSE '' END)
+            """).AsNoTracking();
+        if(term.EnumerateRunes().Count()>=3){var candidates=SearchCandidates(db,term,false).Select(g=>g.Id);rows=rows.Where(g=>candidates.Contains(g.Id));}
         var lower = term.ToLowerInvariant();
         rows = field == "name" ? rows.Where(g => g.Name.ToLower().Contains(lower))
             : rows.Where(g => g.DocumentNumber.ToLower().Contains(lower));

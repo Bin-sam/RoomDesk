@@ -18,8 +18,18 @@ public sealed partial class BoardStore
         DatabasePath = Path.GetFullPath(path);
         Directory.CreateDirectory(Path.GetDirectoryName(DatabasePath)!);
     }
-    private BoardDbContext Open() => new(new DbContextOptionsBuilder<HotelDbContext>()
-        .UseSqlite(new SqliteConnectionStringBuilder { DataSource = DatabasePath, DefaultTimeout = 10 }.ToString()).Options);
+    private BoardDbContext Open()
+    {
+        var connection=new SqliteConnection(new SqliteConnectionStringBuilder { DataSource=DatabasePath, DefaultTimeout=5, Pooling=false }.ToString());
+        try {
+            connection.Open();
+            using var command=connection.CreateCommand();
+            // FULL commits the WAL to stable storage before success is returned. Cache is per connection.
+            command.CommandText="PRAGMA synchronous=FULL; PRAGMA fullfsync=ON; PRAGMA foreign_keys=ON; PRAGMA cache_size=-2048; PRAGMA mmap_size=0; PRAGMA temp_store=FILE; PRAGMA wal_autocheckpoint=1000; PRAGMA journal_size_limit=16777216;";
+            command.ExecuteNonQuery();
+            return new(new DbContextOptionsBuilder<HotelDbContext>().UseSqlite(connection,contextOwnsConnection:true).Options);
+        } catch { connection.Dispose();throw; }
+    }
 
     public async Task InitializeAsync(int seedCount = 24)
     {
@@ -63,16 +73,18 @@ public sealed partial class BoardStore
         finally { gate.Release(); }
     }
 
-    public async Task<BoardSnapshot> ReadAsync()
+    public Task<BoardSnapshot> ReadAsync() => ReadAsync(false);
+    public async Task<BoardSnapshot> ReadAsync(bool includeDeleted)
     {
         await using var db = Open();
-        var rows = await db.BoardStates.AsNoTracking().Include(s => s.Room)
+        var states=includeDeleted?db.BoardStates.IgnoreQueryFilters():db.BoardStates;
+        var rows = await states.AsNoTracking().Include(s => s.Room)
             .OrderBy(s => s.Room.FloorNumber).ThenBy(s => s.Room.RoomNumber)
             .Select(s => new { State = s, GuestName = db.GuestRegistrations
                 .Where(g => g.RoomId == s.RoomId && g.CheckedOutAtUtc == null && s.Occupancy == Occupancy.Occupied)
                 .Select(g => g.Name).FirstOrDefault() }).ToListAsync();
         var activities = await db.Activities.AsNoTracking().OrderByDescending(a => a.Id).Take(100).ToListAsync();
-        return new(rows.Select(row => Card(row.State) with { GuestName = row.GuestName, DefaultPriceCents = row.State.DefaultPriceCents }).ToList(), activities);
+        return new(rows.Select(row => Card(row.State) with { IsDeleted=row.State.IsDeleted, GuestName = row.GuestName, DefaultPriceCents = row.State.DefaultPriceCents, ReservationName = row.State.ReservationName }).ToList(), activities);
     }
 
     public async Task<GuestRegistration?> GetCurrentGuestAsync(int roomId)
@@ -85,7 +97,7 @@ public sealed partial class BoardStore
     {
         if (input is null || string.IsNullOrWhiteSpace(input.Name)) throw new BoardException("请填写入住人姓名。");
         var guest = new GuestInput(input.Name.Trim(), input.Phone?.Trim() ?? "", input.DocumentType?.Trim() ?? "",
-            input.DocumentNumber?.Trim() ?? "", input.Notes?.Trim() ?? "", input.SalePrice);
+            input.DocumentNumber?.Trim() ?? "", input.Notes?.Trim() ?? "", input.SalePrice, ValidatePlatform(input.Platform));
         if(guest.SalePrice is null) throw new BoardException("请填写本次入住售出总价。");
         PriceCents(guest.SalePrice.Value);
         if (guest.Name.Length > 80 || guest.Phone!.Length > 40 || guest.DocumentNumber!.Length > 50 || guest.Notes!.Length > 500)
@@ -95,11 +107,12 @@ public sealed partial class BoardStore
         return guest;
     }
 
-    public async Task ChangeAsync(int roomId, long expectedVersion, string actionKey, GuestInput? guest = null)
+    public async Task ChangeAsync(int roomId, long expectedVersion, string actionKey, GuestInput? guest = null, ReservationInput? reservation = null)
     {
         if (!Enum.TryParse<RoomAction>(actionKey, out var action) || !Enum.IsDefined(action))
             throw new BoardException("不支持的房态操作。");
         var registration = action == RoomAction.CheckIn ? ValidateGuest(guest) : null;
+        var booking = action == RoomAction.Reserve ? ValidateReservation(reservation) : null;
         await gate.WaitAsync();
         try
         {
@@ -112,13 +125,16 @@ public sealed partial class BoardStore
             var before = Description(s);
             switch (action)
             {
-                case RoomAction.Reserve: s.Occupancy = Occupancy.Reserved; break;
-                case RoomAction.CancelReservation: s.Occupancy = Occupancy.Vacant; break;
+                case RoomAction.Reserve:
+                    s.Occupancy = Occupancy.Reserved;
+                    s.ReservationName = booking!.Name; s.ReservationPhone = booking.Phone; s.ReservationPlatform = booking.Platform;
+                    break;
+                case RoomAction.CancelReservation: s.Occupancy = Occupancy.Vacant; ClearReservation(s); break;
                 case RoomAction.CheckIn:
                     db.GuestRegistrations.Add(new GuestRegistration { RoomId = roomId,
-                        Name = registration!.Name, Phone = registration.Phone!, DocumentType = registration.DocumentType!,
+                        Name = registration!.Name, Platform = registration.Platform!, Phone = registration.Phone!, DocumentType = registration.DocumentType!,
                         DocumentNumber = registration.DocumentNumber!, Notes = registration.Notes!, CheckedInAtUtc = DateTime.UtcNow, SalePriceCents = PriceCents(registration.SalePrice!.Value) });
-                    s.Occupancy = Occupancy.Occupied;
+                    s.Occupancy = Occupancy.Occupied; ClearReservation(s);
                     break;
                 case RoomAction.CheckOut:
                     var current = await db.GuestRegistrations.SingleOrDefaultAsync(g => g.RoomId == roomId && g.CheckedOutAtUtc == null);
@@ -142,43 +158,16 @@ public sealed partial class BoardStore
         finally { gate.Release(); }
     }
 
-    public async Task AddRoomAsync(int number, int floor, string type, decimal? defaultPrice = null)
-    {
-        var price = defaultPrice.HasValue ? PriceCents(defaultPrice.Value) : (long?)null;
-        if (number is < 1 or > 99999 || floor is < 1 or > 99)
-            throw new BoardException("房号须为 1–99999，楼层须为 1–99。");
-        if (!Enum.TryParse<RoomType>(type, out var roomType) || !Enum.IsDefined(roomType))
-            throw new BoardException("房型无效。");
-        await gate.WaitAsync();
-        try
-        {
-            await using var db = Open();
-            if (await db.Rooms.AnyAsync(r => r.RoomNumber == number)) throw new BoardException("此房号已存在。");
-            db.BoardStates.Add(new BoardState { DefaultPriceCents = price, Room = new Room { RoomNumber = number, FloorNumber = floor,
-                RoomType = roomType, Status = RoomStatus.ScheduledCleaning, LastCleaned = null }, IsClean = false });
-            db.Activities.Add(new RoomActivity { RoomNumber = number, Action = "新增房间", Before = "—", After = "空房 / 待清扫 / 正常", AtUtc = DateTime.UtcNow });
-            await db.SaveChangesAsync();
-        }
-        finally { gate.Release(); }
-    }
+    public Task AddRoomAsync(int number, int floor, string type, decimal? defaultPrice = null)
+        => AddRoomsAsync(number.ToString(System.Globalization.CultureInfo.InvariantCulture),floor,type,defaultPrice);
 
     // SQLite online backup includes committed WAL data, unlike copying only the .db file.
     public async Task<string> BackupAsync(string? password = null)
     {
         await RequirePasswordAsync(password);
-        await gate.WaitAsync();
-        try
-        {
-            var folder = Path.Combine(Path.GetDirectoryName(DatabasePath)!, "backups");
-            Directory.CreateDirectory(folder);
-            var path = Path.Combine(folder, $"rooms-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString()[..6]}.db");
-            using var source = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = DatabasePath }.ToString());
-            using var destination = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = path }.ToString());
-            await source.OpenAsync(); await destination.OpenAsync();
-            source.BackupDatabase(destination);
-            return path;
-        }
-        finally { gate.Release(); }
+        var folder=Path.Combine(Path.GetDirectoryName(DatabasePath)!,"backups");Directory.CreateDirectory(folder);
+        var path=Path.Combine(folder,$"rooms-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString()[..6]}.db");
+        await CopyOnlineBackupAsync(path);return path;
     }
 
     private static IReadOnlyList<RoomAction> Allowed(BoardState s)
@@ -195,7 +184,7 @@ public sealed partial class BoardStore
     }
     public static string Label(RoomAction action) => action switch
     {
-        RoomAction.Reserve => "标记预订", RoomAction.CancelReservation => "取消预订",
+        RoomAction.Reserve => "办理预订", RoomAction.CancelReservation => "取消预订",
         RoomAction.CheckIn => "办理入住", RoomAction.CheckOut => "标记退房",
         RoomAction.MarkDirty => "设为待清扫", RoomAction.Clean => "清扫完成",
         RoomAction.StartMaintenance => "设为维修", RoomAction.Disable => "停用房间", _ => "恢复使用"
@@ -215,9 +204,9 @@ public sealed partial class BoardStore
             _ => s.Occupancy switch { Occupancy.Occupied => ("occupied", "在住"), Occupancy.Reserved => ("reserved", "已预订"),
                 _ => s.IsClean ? ("ready", "可入住") : ("dirty", "待清扫") }
         };
-        return new(s.RoomId, s.Room.RoomNumber, s.Room.FloorNumber, s.Room.RoomType switch {
+        return new(s.RoomId, s.Room.RoomNumber, s.Room.FloorNumber, s.TypeName ?? (s.Room.RoomType switch {
             RoomType.Standard => "标准间", RoomType.Deluxe => "豪华房", RoomType.ExecutiveSuite => "行政套房",
-            RoomType.VipSuite => "贵宾套房", _ => "顶层套房" }, label, key, s.Occupancy.ToString(), s.Service.ToString(), s.IsClean, s.Version,
+            RoomType.VipSuite => "贵宾套房", _ => "顶层套房" }), label, key, s.Occupancy.ToString(), s.Service.ToString(), s.IsClean, s.Version,
             Allowed(s).Select(a => new ActionOption(a.ToString(), Label(a))).ToList());
     }
 }

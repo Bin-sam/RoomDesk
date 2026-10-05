@@ -1,0 +1,126 @@
+board: first=360.9 max=360.9 ms
+history_first: first=77.8 max=77.8 ms
+history_last_page: first=63.6 max=68.7 ms
+search_name: first=45.4 max=45.4 ms
+search_short_name: first=124.7 max=146.7 ms
+search_short_no_match: first=383.1 max=394.9 ms
+search_no_match: first=4.6 max=4.6 ms
+search_document: first=88.2 max=88.2 ms
+suggest_name: first=93.7 max=93.7 ms
+suggest_one_character: first=2.8 max=2.8 ms
+suggest_no_match: first=234.2 max=234.2 ms
+bill_10years: first=126.1 max=126.1 ms
+checkin_checkout_clean: first=174.3 max=174.3 ms
+stream_full_export: first=5360.4 max=5360.4 ms
+foreground_during_backup: first=54.4 max=54.4 ms
+{
+  "os": "Darwin 24.6.0 Darwin Kernel Version 24.6.0: Tue Jul 21 20:51:32 PDT 2026; root:xnu-11417.140.69.711.44~1/RELEASE_ARM64_T8112",
+  "sqlite": "8.0.11.0",
+  "storage": {
+    "DatabasePath": "/Users/zoubin/Documents/Codex/2026-10-04/w/work/longevity-1m.db",
+    "JournalMode": "wal",
+    "Synchronous": 2,
+    "DatabaseMb": 1012.2,
+    "WalMb": 3.27,
+    "WorkingSetMb": 41.6,
+    "LastBackup": null,
+    "MaintenanceError": null
+  },
+  "peakRssBytes": 121389056,
+  "peakRssMB": 121.389056,
+  "peakRssMiB": 115.765625,
+  "timings": {
+    "board": {
+      "first": 360.9346,
+      "p50": 3.8243,
+      "max": 360.9346,
+      "runs": 12
+    },
+    "history_first": {
+      "first": 77.7673,
+      "p50": 35.3472,
+      "max": 77.7673,
+      "runs": 12
+    },
+    "history_last_page": {
+      "first": 63.5917,
+      "p50": 63.362,
+      "max": 68.7425,
+      "runs": 12
+    },
+    "search_name": {
+      "first": 45.4247,
+      "p50": 7.3313,
+      "max": 45.4247,
+      "runs": 12
+    },
+    "search_short_name": {
+      "first": 124.6987,
+      "p50": 94.451,
+      "max": 146.7265,
+      "runs": 12
+    },
+    "search_short_no_match": {
+      "first": 383.0922,
+      "p50": 382.3593,
+      "max": 394.9166,
+      "runs": 12
+    },
+    "search_no_match": {
+      "first": 4.6178,
+      "p50": 1.7337,
+      "max": 4.6178,
+      "runs": 12
+    },
+    "search_document": {
+      "first": 88.2045,
+      "p50": 27.3541,
+      "max": 88.2045,
+      "runs": 12
+    },
+    "suggest_name": {
+      "first": 93.7034,
+      "p50": 8.105,
+      "max": 93.7034,
+      "runs": 12
+    },
+    "suggest_one_character": {
+      "first": 2.7618,
+      "p50": 0.9988,
+      "max": 2.7618,
+      "runs": 12
+    },
+    "suggest_no_match": {
+      "first": 234.2377,
+      "p50": 198.1435,
+      "max": 234.2377,
+      "runs": 12
+    },
+    "bill_10years": {
+      "first": 126.0892,
+      "p50": 98.5478,
+      "max": 126.0892,
+      "runs": 12
+    },
+    "checkin_checkout_clean": {
+      "first": 174.3396,
+      "p50": 37.9807,
+      "max": 174.3396,
+      "runs": 30
+    },
+    "stream_full_export": {
+      "first": 5360.4049,
+      "p50": 5360.4049,
+      "max": 5360.4049,
+      "runs": 1
+    },
+    "foreground_during_backup": {
+      "first": 54.4331,
+      "p50": 19.9552,
+      "max": 54.4331,
+      "runs": 20
+    }
+  },
+  "foregroundUnder1s": true,
+  "coreProcessUnder200Mb": true
+}

@@ -6,6 +6,7 @@ public sealed record BillSummary(IReadOnlyList<StayRecord> Records,int Count,int
 {
     public string TotalText => BoardStore.PriceText(TotalCents);
 }
+public sealed class BillTotals {public int Count{get;set;} public int Missing{get;set;} public long Total{get;set;}}
 public sealed partial class BoardStore
 {
     private static (DateTime Start,DateTime EndExclusive) BillRange(string start,string end)
@@ -15,23 +16,33 @@ public sealed partial class BoardStore
             || a.Year<1900 || b.Year>2100 || a>b)throw new BoardException("请选择有效的起止时间（精确到分钟），结束时间不能早于开始时间。");
         return (DateTime.SpecifyKind(a.AddHours(-8),DateTimeKind.Utc),DateTime.SpecifyKind(b.AddMinutes(1).AddHours(-8),DateTimeKind.Utc));
     }
-    private async Task<List<StayRecord>> BillRowsAsync(string start,string end)
+    private static IQueryable<StayRecord> BillQuery(BoardDbContext db,string start,string end)
     {
-        var range=BillRange(start,end);await using var db=Open();
-        return await StayQuery(db,null,"all").Where(g=>g.CheckedInAtUtc>=range.Start && g.CheckedInAtUtc<range.EndExclusive).OrderBy(g=>g.CheckedInAtUtc).ThenBy(g=>g.Id).ToListAsync();
+        var range=BillRange(start,end);
+        return StayQuery(db,null,"all").Where(g=>g.CheckedInAtUtc>=range.Start && g.CheckedInAtUtc<range.EndExclusive).OrderBy(g=>g.CheckedInAtUtc).ThenBy(g=>g.Id);
     }
     public async Task<BillSummary> ReadBillAsync(string start,string end)
     {
-        var rows=await BillRowsAsync(start,end);
-        return new(rows.Take(100).ToList(),rows.Count,rows.Count(r=>!r.SalePriceCents.HasValue),rows.Sum(r=>r.SalePriceCents??0));
+        await using var db=Open();
+        await using var tx=((Microsoft.Data.Sqlite.SqliteConnection)db.Database.GetDbConnection()).BeginTransaction(deferred:true);await db.Database.UseTransactionAsync(tx);
+        var query=BillQuery(db,start,end);
+        var range=BillRange(start,end);
+        var totals=await db.Database.SqlQuery<BillTotals>($"SELECT count(*) AS Count,coalesce(sum(CASE WHEN SalePriceCents IS NULL THEN 1 ELSE 0 END),0) AS Missing,coalesce(sum(SalePriceCents),0) AS Total FROM GuestRegistrations WHERE DeletedAtUtc IS NULL AND CheckedInAtUtc>={range.Start} AND CheckedInAtUtc<{range.EndExclusive}").SingleAsync();
+        var rows=await query.Take(100).ToListAsync();await tx.CommitAsync();
+        return new(rows,totals?.Count??0,totals?.Missing??0,totals?.Total??0);
     }
     public async Task<byte[]> ExportBillAsync(string start,string end,string? password)
     {
-        await RequirePasswordAsync(password);var rows=await BillRowsAsync(start,end);
-        var csv=new StringBuilder("记录编号,房号,入住人姓名,入住时间（北京时间）,退房时间（北京时间）,状态,售出总价（元）,金额登记状态,筛选开始（含）,筛选结束分钟（含）\r\n");
-        foreach(var row in rows)
-            csv.AppendJoin(',',new[]{row.Id.ToString(CultureInfo.InvariantCulture),row.RoomNumber.ToString(CultureInfo.InvariantCulture),row.Name,row.CheckInText,row.CheckedOutAtUtc.HasValue?row.CheckOutText:"",row.Status,row.SalePriceCents.HasValue?row.SalePriceText:"",row.SalePriceCents.HasValue?"已登记":"未登记",start.Replace('T',' '),end.Replace('T',' ')}.Select(CsvCell)).Append("\r\n");
-        csv.AppendJoin(',',new[]{"合计","",$"{rows.Count} 笔","","","",PriceText(rows.Sum(r=>r.SalePriceCents??0)),$"{rows.Count(r=>r.SalePriceCents==null)} 笔未登记价格",start.Replace('T',' '),end.Replace('T',' ')}.Select(CsvCell)).Append("\r\n");
-        return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
+        await using var file=await OpenBillCsvAsync(start,end,password);using var buffer=new MemoryStream();await file.CopyToAsync(buffer);return buffer.ToArray();
     }
+    public Task<FileStream> OpenBillCsvAsync(string start,string end,string? password)
+        => CreateCsvAsync(password,async writer=>{
+            await using var db=Open();int count=0,missing=0;long total=0;
+            await writer.WriteLineAsync("记录编号,房号,入住人姓名,入住时间（北京时间）,退房时间（北京时间）,状态,售出总价（元）,金额登记状态,筛选开始（含）,筛选结束分钟（含）,预订平台");
+            await foreach(var row in BillQuery(db,start,end).AsAsyncEnumerable()){
+                count++;if(row.SalePriceCents==null)missing++;total+=row.SalePriceCents??0;
+                await WriteCsvLine(writer,new[]{row.Id.ToString(CultureInfo.InvariantCulture),row.RoomNumber.ToString(CultureInfo.InvariantCulture),row.Name,row.CheckInText,row.CheckedOutAtUtc.HasValue?row.CheckOutText:"",row.Status,row.SalePriceCents.HasValue?row.SalePriceText:"",row.SalePriceCents.HasValue?"已登记":"未登记",start.Replace('T',' '),end.Replace('T',' '),row.Platform});
+            }
+            await WriteCsvLine(writer,new[]{"合计","",$"{count} 笔","","","",PriceText(total),$"{missing} 笔未登记价格",start.Replace('T',' '),end.Replace('T',' '),""});
+        });
 }

@@ -63,7 +63,7 @@ def board(): return get('/api/board')['snapshot']
 def room(number): return next(r for r in board()['rooms'] if r['number']==number)
 def action(number, act, guest=None, expected=200, version=None):
     r=room(number)
-    return post(f'/api/rooms/{r["id"]}/action',{'version':r['version'] if version is None else version,'action':act,'guest':guest},expected)
+    return post(f'/api/rooms/{r["id"]}/action',{'version':r['version'] if version is None else version,'action':act,'guest':guest,'reservation':{'name':'预订测试','platform':'线下','phone':'TEST-ONLY'} if act=='Reserve' else None},expected)
 def guest(name='前台测试甲',price=168.50,doc='FD-ONLY-A'):
     return {'name':name,'salePrice':price,'documentType':'其他','documentNumber':doc,'phone':'TEST-PHONE','notes':'仅测试数据'}
 def stays(): return get('/api/stays')['records']

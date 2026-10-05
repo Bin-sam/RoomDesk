@@ -34,6 +34,6 @@ public sealed class BillingWindow:Window
             catch(Exception ex){if(id==generation){feedback.Text=ex.Message;summary.Text="";grid.ItemsSource=null;}}
         }
         find.Click+=async(_,_)=>await Load();Loaded+=async(_,_)=>await Load();
-        export.Click+=async(_,_)=>{if(active is not {} range)return;var file=new SaveFileDialog{Filter="CSV 文件 (*.csv)|*.csv",FileName="入住账单.csv"};if(file.ShowDialog(this)!=true)return;await PasswordPrompt.RunAsync(this,store,"导出该时间段入住账单",async password=>{var bytes=await Task.Run(()=>store.ExportBillAsync(range.Start,range.End,password));await System.IO.File.WriteAllBytesAsync(file.FileName,bytes);feedback.Text="账单已导出："+file.FileName;});};
+        export.Click+=async(_,_)=>{if(active is not {} range)return;var file=new SaveFileDialog{Filter="CSV 文件 (*.csv)|*.csv",FileName="入住账单.csv"};if(file.ShowDialog(this)!=true)return;await PasswordPrompt.RunAsync(this,store,"导出该时间段入住账单",async password=>{await BoardStore.SaveExportAsync(await Task.Run(()=>store.OpenBillCsvAsync(range.Start,range.End,password)),file.FileName);feedback.Text="账单已导出："+file.FileName;});};
     }
 }

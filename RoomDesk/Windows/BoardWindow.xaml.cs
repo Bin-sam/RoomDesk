@@ -26,19 +26,23 @@ public partial class BoardWindow : Window, INotifyPropertyChanged
         var columns = e.NewSize.Width >= 870 ? 8 : 4;
         if (columns != RoomColumns) { RoomColumns = columns; Notify(); }
     }
+    private readonly CancellationTokenSource lifetime=new();
     private bool loaded;
+    public string HotelName { get;private set; }="栖间";
     public BoardWindow(BoardStore boardStore)
     {
         store = boardStore;
         InitializeComponent(); DataContext = this;
+        Closed+=(_,_)=>lifetime.Cancel();
         Loaded += async (_, _) => await RunAsync(async () => {
-            await Task.Run(() => store.InitializeAsync()); loaded = true; await ReloadAsync();
+            await Task.Run(() => store.InitializeAsync()); _=Task.Run(()=>store.RunMaintenanceLoopAsync(lifetime.Token)); loaded = true; await ReloadAsync();
         }, "已载入本地示例房态 · 选择房间进行操作");
     }
     private void Notify() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     private async Task ReloadAsync()
     {
         snapshot = await Task.Run(store.ReadAsync);
+        HotelName=await Task.Run(store.ReadHotelNameAsync);Title=HotelName+" · 房态管理";
         int selectedId = Selected?.Id ?? snapshot.Rooms.FirstOrDefault()?.Id ?? 0;
         Selected = snapshot.Rooms.FirstOrDefault(r => r.Id == selectedId);
         var previous = FloorBox.SelectedItem?.ToString() ?? "全部楼层";
@@ -67,8 +71,16 @@ public partial class BoardWindow : Window, INotifyPropertyChanged
         if (room is null || key is null) return;
         if (key == "CheckIn")
         {
-            if (new CheckInWindow(store, room) { Owner = this }.ShowDialog() == true)
-                await RunAsync(ReloadAsync, $"{room.Number} 入住信息已保存，房间已转为在住");
+            await RunAsync(async () => {
+                var reservation = await Task.Run(() => store.GetReservationAsync(room.Id));
+                if (new CheckInWindow(store, room, reservation: reservation) { Owner = this }.ShowDialog() == true) await ReloadAsync();
+            }, "已同步房态");
+            return;
+        }
+        if (key == "Reserve")
+        {
+            if (new ReservationWindow(store, room) { Owner = this }.ShowDialog() == true)
+                await RunAsync(ReloadAsync, $"{room.Number} 预订信息已保存");
             return;
         }
         if (key is "CheckOut" or "Disable" && MessageBox.Show(this, $"确认对 {room.Number} 执行“{room.Actions.First(a => a.Key == key).Label}”？", "确认房态变更", MessageBoxButton.OKCancel) != MessageBoxResult.OK) return;
@@ -76,6 +88,14 @@ public partial class BoardWindow : Window, INotifyPropertyChanged
     }
     private async void Guest_Click(object sender, RoutedEventArgs e)
     {
+        if (Selected is { Occupancy: "Reserved" } reserved)
+        {
+            await RunAsync(async () => {
+                var reservation = await Task.Run(() => store.GetReservationAsync(reserved.Id));
+                new ReservationWindow(store, reserved, true, reservation) { Owner = this }.ShowDialog();
+            }, "已读取预订信息");
+            return;
+        }
         if (Selected is not { Occupancy: "Occupied" } room) { Feedback = "请选择在住房间查看入住信息。"; Notify(); return; }
         await RunAsync(async () => {
             var guest = await Task.Run(() => store.GetCurrentGuestAsync(room.Id));

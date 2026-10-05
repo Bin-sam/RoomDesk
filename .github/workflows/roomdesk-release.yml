@@ -29,6 +29,8 @@ jobs:
         run: |
           dotnet build RoomDesk/Preview/Preview.csproj -c Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build RoomDesk/Benchmarks/Benchmarks.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $dotnet = (Get-Command dotnet).Source
           python RoomDesk/Tests/api_smoke.py $dotnet
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -37,22 +39,32 @@ jobs:
       - name: Publish self-contained Windows app
         shell: pwsh
         run: |
-          dotnet publish RoomDesk/Windows/Windows.csproj -c Release -r win-x64 --self-contained true -p:Version=0.6.0 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o RoomDesk/artifacts/windows-x64
+          dotnet publish RoomDesk/Windows/Windows.csproj -c Release -r win-x64 --self-contained true -p:Version=0.7.0 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o RoomDesk/artifacts/windows-x64
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Gate million-row latency and native WPF memory
+        shell: pwsh
+        run: ./RoomDesk/installer/performance-gate.ps1 -Application "$PWD/RoomDesk/artifacts/windows-x64/RoomDesk.exe"
+      - name: Preserve Windows performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RoomDesk-Windows-performance
+          path: RoomDesk/artifacts/validation/*.json
+          if-no-files-found: warn
       - name: Build installer and portable archive
         shell: pwsh
         run: |
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (!(Test-Path $compiler)) { throw 'Inno Setup compiler is unavailable on this runner.' }
-          & $compiler /DAppVersion=0.6.0 RoomDesk/installer/RoomDesk.iss
+          & $compiler /DAppVersion=0.7.0 RoomDesk/installer/RoomDesk.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item LICENSE RoomDesk/artifacts/windows-x64/LICENSE
           Copy-Item RoomDesk/installer/INSTALL-WINDOWS.txt RoomDesk/artifacts/windows-x64/
           Copy-Item RoomDesk/installer/licenses RoomDesk/artifacts/windows-x64/licenses -Recurse
-          Compress-Archive -Path RoomDesk/artifacts/windows-x64/* -DestinationPath RoomDesk/artifacts/release/RoomDesk-Portable-0.6.0-win-x64.zip
+          Compress-Archive -Path RoomDesk/artifacts/windows-x64/* -DestinationPath RoomDesk/artifacts/release/RoomDesk-Portable-0.7.0-win-x64.zip
       - name: Test installation, launch, reinstall and uninstall
         shell: pwsh
-        run: ./RoomDesk/installer/smoke-install.ps1 -Installer "$PWD/RoomDesk/artifacts/release/RoomDesk-Setup-0.6.0-win-x64.exe"
+        run: ./RoomDesk/installer/smoke-install.ps1 -Installer "$PWD/RoomDesk/artifacts/release/RoomDesk-Setup-0.7.0-win-x64.exe"
       - name: Generate checksums
         shell: pwsh
         run: |
@@ -71,7 +83,7 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           $files = (Get-ChildItem RoomDesk/artifacts/release -File).FullName
-          gh release create $env:RELEASE_TAG @files --verify-tag --prerelease --title "RoomDesk 0.6.0 — Windows preview" --notes-file RoomDesk/installer/RELEASE-NOTES.md
+          gh release create $env:RELEASE_TAG @files --verify-tag --prerelease --title "RoomDesk 0.7.0 — Windows preview" --notes-file RoomDesk/installer/RELEASE-NOTES.md
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     permissions:
       contents: write

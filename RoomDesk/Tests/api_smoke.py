@@ -19,7 +19,8 @@ import urllib.parse
 root = pathlib.Path(__file__).resolve().parents[1]
 dotnet = pathlib.Path(sys.argv[1]).resolve()
 dll = root / "Preview/bin/Release/net8.0/Preview.dll"
-base = "http://127.0.0.1:5188"
+port = int(sys.argv[2]) if len(sys.argv)>2 else 5188
+base = f"http://127.0.0.1:{port}"
 checks = 0
 password = "HTTP-test-only-2026"
 
@@ -49,7 +50,7 @@ try:
 except urllib.error.URLError:
     pass
 else:
-    raise RuntimeError("Port 5188 already occupied; refusing to use another server's data")
+    raise RuntimeError("Test port already occupied; refusing to use another server's data")
 
 with tempfile.TemporaryDirectory(prefix="roomdesk-api-") as temp:
     dbpath = pathlib.Path(temp) / "rooms.db"
@@ -58,7 +59,7 @@ with tempfile.TemporaryDirectory(prefix="roomdesk-api-") as temp:
 
     def start():
         global process
-        process = subprocess.Popen([str(dotnet), str(dll), "--data", str(dbpath)],
+        process = subprocess.Popen([str(dotnet), str(dll), "--port", str(port), "--data", str(dbpath)],
                                    cwd=root / "Preview", stdout=log, stderr=log)
         for _ in range(100):
             if process.poll() is not None:
@@ -142,12 +143,7 @@ with tempfile.TemporaryDirectory(prefix="roomdesk-api-") as temp:
         check(len(suggestions) == 1 and suggestions[0]["phone"] == "TEST-PHONE", "HTTP partial document lookup returns saved fields")
         check(request("/api/guests/suggestions?query=HTTP&field=invalid")[0] == 409, "HTTP invalid suggestion field rejected")
         check(json.loads(request("/api/guests/suggestions?query=")[1]) == [], "HTTP blank query returns no candidates")
-        reader_text = {"text": "姓名：读卡测试\n身份证号：00000020000101000X"}
-        check(request("/api/identity/parse", reader_text)[0] == 403, "reader parsing requires local token")
-        status_code, parsed = request("/api/identity/parse", reader_text, reopened["token"])
-        check(status_code == 200 and json.loads(parsed) == {"name": "读卡测试", "documentNumber": "00000020000101000X"}, "HTTP reader input parses without saving")
-        check(request("/api/identity/parse", {"text": "读卡未完成"}, reopened["token"])[0] == 409, "HTTP incomplete read fails explicitly")
-        check(json.loads(request("/api/stays")[1])["total"] == 2, "reader parse leaves stay history unchanged")
+        check(request("/api/identity/parse", {"text":"removed"}, reopened["token"])[0] == 404, "removed reader endpoint is unavailable")
         check(request("/api/stays/export", {},reopened["token"])[0] == 409, "record export cannot bypass password via API")
         check(request("/api/bills/export", {"start":"2000-01-01T00:00","end":"2099-12-31T23:59"},reopened["token"])[0] == 409, "bill export cannot bypass password")
         bill = json.loads(request("/api/bills?start=2000-01-01T00:00&end=2099-12-31T23:59")[1])
@@ -158,6 +154,84 @@ with tempfile.TemporaryDirectory(prefix="roomdesk-api-") as temp:
         check(request(f'/api/stays/{guest["id"]}/delete',{},reopened["token"])[0] == 409,"record deletion rejects missing password")
         check(request(f'/api/stays/{guest["id"]}/delete',{"password":password},reopened["token"])[0] == 200,"archived record deletion accepts correct password")
         check(json.loads(request("/api/stays")[1])["total"] == 1,"deleted record removed from history")
+        token = reopened["token"]
+        current = next(r for r in json.loads(request("/api/board")[1])["snapshot"]["rooms"] if r["number"] == 101)
+        route = f'/api/rooms/{current["id"]}/action'
+        check(request(route, {"version":current["version"],"action":"Clean"},token)[0] == 200,"prepare clean room for reservation")
+        version=current["version"]+1
+        check(request(route, {"version":version,"action":"Reserve"},token)[0] == 409,"reservation requires guest name")
+        booking={"name":"HTTP预订测试","platform":"携程","phone":"TEST-RESERVATION"}
+        check(request(route, {"version":version,"action":"Reserve","reservation":booking},token)[0] == 200,"reservation accepts name platform and phone")
+        card=next(r for r in json.loads(request("/api/board")[1])["snapshot"]["rooms"] if r["number"]==101)
+        check(card["boardCaption"]==booking["name"] and card["reservationName"]==booking["name"],"reservation name appears in room card API")
+        check(json.loads(request(f'/api/rooms/{current["id"]}/reservation')[1])["reservation"]==booking,"reservation information can be read for check-in")
+        check(request(route,{"version":version+1,"action":"CheckIn","guest":{"name":booking["name"],"phone":booking["phone"],"platform":"飞猪","documentType":"身份证","salePrice":188}},token)[0]==200,"reservation can check in with edited platform")
+        saved=json.loads(request(f'/api/rooms/{current["id"]}/guest')[1])["guest"]
+        check(saved["platform"]=="飞猪" and saved["phone"]==booking["phone"],"check-in platform and phone saved")
+        check(json.loads(request(f'/api/rooms/{current["id"]}/reservation')[1])["reservation"] is None,"consumed reservation no longer returned")
+        presets=json.loads(request("/api/platform-presets")[1])
+        check([p["name"] for p in presets]==["线下","携程","美团","飞猪"],"platform shortcuts start with four common words")
+        check(request("/api/platform-presets",{"name":"抖音"})[0]==403,"adding platform shortcut requires local token")
+        check(request("/api/platform-presets",{"name":" 抖音 "},token)[0]==200,"custom platform shortcut added")
+        check(request("/api/platform-presets",{"name":"抖音"},token)[0]==409,"duplicate platform shortcut rejected")
+        word=next(p for p in json.loads(request("/api/platform-presets")[1]) if p["name"]=="抖音")
+        check(request(f'/api/platform-presets/{word["id"]}/delete',{},token)[0]==409,"shortcut deletion requires password")
+        check(request(f'/api/platform-presets/{word["id"]}/delete',{"password":password},token)[0]==200,"shortcut deletion with correct password")
+        check(all(p["name"]!="抖音" for p in json.loads(request("/api/platform-presets")[1])),"deleted shortcut removed from shared list")
+        check(saved["platform"]=="飞猪" and json.loads(request(f'/api/rooms/{current["id"]}/guest')[1])["guest"]["platform"]=="飞猪","shortcut deletion does not alter existing guest platform")
+        check(request("/api/platform-presets",{"name":"抖音"},token)[0]==200,"deleted shortcut can be restored")
+        stop()
+        reopened=start()
+        check(any(p["name"]=="抖音" for p in json.loads(request("/api/platform-presets")[1])),"custom shortcut survives process restart")
+        token=reopened["token"]
+        batch={"numbers":"701-703、705","floor":7,"type":"亲子房","defaultPrice":299.50}
+        before=json.loads(request("/api/board")[1])["snapshot"]["rooms"]
+        check(request("/api/rooms/batch",batch)[0]==403,"batch creation requires local token")
+        check(request("/api/rooms/batch",{**batch,"numbers":"701,101"},token)[0]==409,"batch with existing room rejected")
+        check(len(json.loads(request("/api/board")[1])["snapshot"]["rooms"])==len(before),"HTTP conflict leaves all rooms unchanged")
+        code,result=request("/api/rooms/batch",batch,token)
+        check(code==200 and json.loads(result)["count"]==4,"HTTP batch adds four rooms")
+        cards=json.loads(request("/api/board")[1])["snapshot"]["rooms"]
+        check(all(r["type"]=="亲子房" and r["defaultPrice"]==299.50 and r["statusKey"]=="dirty" for r in cards if r["number"] in [701,702,703,705]),"HTTP batch fields saved accurately")
+        check(request("/api/rooms/batch",{**batch,"numbers":"800-1000"},token)[0]==409,"oversized HTTP batch rejected")
+        check(request("/api/rooms/batch",{**batch,"numbers":"800,800"},token)[0]==409,"repeated room in HTTP batch rejected")
+        check(request("/api/rooms",{"number":706,"floor":7,"type":"影音房"},token)[0]==200,"single room accepts free text type")
+        words=json.loads(request("/api/room-type-presets")[1]);check(len(words)==5,"room types have separate default shortcuts")
+        check(request("/api/room-type-presets",{"name":"亲子房"},token)[0]==200,"custom room type shortcut added")
+        word=next(p for p in json.loads(request("/api/room-type-presets")[1]) if p["name"]=="亲子房")
+        check(request(f'/api/room-type-presets/{word["id"]}/delete',{},token)[0]==409,"room type shortcut deletion password protected")
+        check(request(f'/api/room-type-presets/{word["id"]}/delete',{"password":password},token)[0]==200,"room type shortcut deletion succeeds with password")
+        stop();reopened=start()
+        check(not any(p["name"]=="亲子房" for p in json.loads(request("/api/room-type-presets")[1])),"deleted room type stays removed after process restart")
+        cards=json.loads(request("/api/board")[1])["snapshot"]["rooms"]
+        check(len(cards)==len(before)+5 and next(r for r in cards if r["number"]==701)["type"]=="亲子房","batch rooms and custom type persist after deleting shortcut and restarting")
+        token=reopened["token"]
+        check(request("/api/hotel/name",{"name":"HTTP酒店测试"},token)[0]==200,"hotel name saves through HTTP")
+        vacant=next(r for r in cards if r["number"]==701)
+        delete=f'/api/rooms/{vacant["id"]}/delete'
+        check(request(delete,{"version":vacant["version"]},token)[0]==409,"room deletion rejects missing password")
+        check(request(delete,{"version":vacant["version"],"password":password},token)[0]==200,"vacant room deletion accepted")
+        check(not any(r["number"]==701 for r in json.loads(request("/api/board")[1])["snapshot"]["rooms"]),"deleted room removed from board API")
+        archived=next(r for r in json.loads(request("/api/rooms/manage")[1])["snapshot"]["rooms"] if r["number"]==701)
+        check(archived["isDeleted"],"management exposes recoverable deleted room")
+        check(request(f'/api/rooms/{vacant["id"]}/restore',{"version":archived["version"]},token)[0]==200,"room recovery accepted")
+        storage=json.loads(request("/api/storage")[1]);check(storage["journalMode"]=="wal" and storage["synchronous"]==2,"HTTP connection uses WAL FULL")
+        # An acknowledged write must survive ungraceful termination; do not call graceful stop here.
+        process.kill();process.wait(timeout=15)
+        reopened=start();check(reopened["hotelName"]=="HTTP酒店测试" and any(r["number"]==701 for r in reopened["snapshot"]["rooms"]),"acknowledged hotel and room changes survive SIGKILL")
+        stop()
+        helper=root/"Benchmarks/bin/Release/net8.0/Benchmarks.dll"
+        if helper.exists():
+            pending=subprocess.Popen([str(dotnet),str(helper),str(dbpath),"--uncommitted"],stdout=subprocess.PIPE,text=True)
+            try:
+                check(pending.stdout.readline().strip()=="UNCOMMITTED_READY","test helper holds uncommitted transaction")
+                pending.kill();pending.wait(timeout=15)
+            finally:
+                if pending.poll() is None: pending.kill();pending.wait(timeout=15)
+            reopened=start();check(reopened["hotelName"]=="HTTP酒店测试","uncommitted transaction rolled back after SIGKILL")
+            stop()
+        with sqlite3.connect(dbpath) as integrity:
+            check(integrity.execute("PRAGMA integrity_check").fetchone()[0]=="ok","database integrity survives crash tests")
         print(f"RESULT: {checks} HTTP/process integration checks passed. No UI assertions.")
     finally:
         stop()
