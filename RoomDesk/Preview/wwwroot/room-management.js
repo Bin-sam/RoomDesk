@@ -27,7 +27,7 @@ function parseNumbers(value){
 }
 function previewBatch(){
  if(!batch)return;const form=$('manage-add-form'),box=$('batch-preview');
- try{const numbers=parseNumbers(form.elements.numbers.value),conflicts=numbers.filter(n=>rooms.some(r=>r.number===n));box.classList.toggle('batch-invalid',conflicts.length>0);box.textContent=conflicts.length?`房号已存在：${conflicts.join('、')}。整批不会添加。`:`将新增 ${numbers.length} 间 · ${form.elements.floor.value||'—'} 楼 · ${form.elements.type.value||'未填房型'}\n房号：${numbers.join('、')}`;$('manage-save').textContent=`添加 ${numbers.length} 间房间`;}
+ try{const numbers=parseNumbers(form.elements.numbers.value),conflicts=numbers.filter(n=>rooms.some(r=>!r.isDeleted&&r.number===n));box.classList.toggle('batch-invalid',conflicts.length>0);box.textContent=conflicts.length?`房号已存在：${conflicts.join('、')}。整批不会添加。`:`将新增 ${numbers.length} 间 · ${form.elements.floor.value||'—'} 楼 · ${form.elements.type.value||'未填房型'}\n房号：${numbers.join('、')}`;$('manage-save').textContent=`添加 ${numbers.length} 间房间`;}
  catch(e){box.classList.add('batch-invalid');box.textContent=e.message;$('manage-save').textContent='批量添加房间';}
 }
 function setMode(value){if(saving)return;batch=value;$('single-number-label').hidden=batch;$('batch-number-label').hidden=!batch;$('batch-preview').hidden=!batch;const form=$('manage-add-form');form.elements.number.required=!batch;form.elements.number.disabled=batch;form.elements.numbers.required=batch;form.elements.numbers.disabled=!batch;$('mode-single').setAttribute('aria-pressed',String(!batch));$('mode-batch').setAttribute('aria-pressed',String(batch));$('manage-save').textContent=batch?'批量添加房间':'添加房间';$('manage-error').textContent='';previewBatch();}

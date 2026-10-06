@@ -63,7 +63,7 @@ public sealed class RoomManagementWindow : Window
         number.TextChanged+=(_,_)=>PreviewBatch();batch.Checked+=(_,_)=>PreviewBatch();batch.Unchecked+=(_,_)=>PreviewBatch();
         foreach (var field in new (string,Control)[]{("房号",number),("楼层",floor),("房型",type),("默认价格（元，选填）",defaultPrice)})
         { form.Children.Add(new TextBlock { Text = field.Item1, Margin = new Thickness(0,16,0,6) }); form.Children.Add(field.Item2); }
-        form.Children.Add(new TextBlock { Text = "房号示例：401-408、410（每批最多 200 间）。新房间为待清扫；有冲突时整批不添加。", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Sienna, Margin = new Thickness(0,16,0,0) });
+        form.Children.Add(new TextBlock { Text = "房号示例：401-408、410（每批最多 200 间）。新房间为待清扫。已删除房号可重加，使用新资料且保留历史；当前房号冲突时整批不添加。", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Sienna, Margin = new Thickness(0,16,0,0) });
         var error = new TextBlock { Foreground = Brushes.Firebrick, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,10) }; form.Children.Add(error);
         var save = new Button { Content = "添加房间", Margin = new Thickness(0), IsEnabled = false }; form.Children.Add(save);
         query.TextChanged += (_, _) => Filter(); floorFilter.SelectionChanged += (_, _) => Filter();

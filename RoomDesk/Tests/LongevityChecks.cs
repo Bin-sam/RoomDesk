@@ -19,7 +19,24 @@ static class LongevityChecks
         check((await store.SearchStaysAsync("历史测试")).Total==1,"deleting room preserves searchable historical stays");
         check((await store.ReadBillAsync("2000-01-01T00:00","2100-01-01T00:00")).TotalCents==20000,"deleting room preserves bill totals");
         await rejected(()=>store.ChangeAsync(room.Id,room.Version+3,"Clean"),"deleted room rejects stale board action");
-        await rejected(()=>store.AddRoomAsync(101,1,"双床"),"deleted room number reserved for recovery");
+        await store.AddRoomAsync(101,9,"双床",388);
+        var added=(await store.ReadAsync()).Rooms.Single(r=>r.Number==101);
+        check(added.Id==room.Id&&added.Floor==9&&added.Type=="双床"&&added.DefaultPriceCents==38800&&added.StatusKey=="dirty","re-add deleted number uses new details and retains identity");
+        check((await store.ReadAsync(true)).Rooms.Count(r=>r.Number==101)==1,"re-add has no duplicate archived room");
+        check((await store.SearchStaysAsync("历史测试")).Total==1&&(await store.ReadBillAsync("2000-01-01T00:00","2100-01-01T00:00")).TotalCents==20000,"re-add retains historical stays and bills");
+        await rejected(()=>store.RestoreRoomAsync(room.Id,room.Version+3),"stale archived restore rejected after re-add");
+        await store.DeleteRoomAsync(added.Id,added.Version,password);
+        await rejected(()=>store.AddRoomsAsync("101,102,901",4,"亲子房",288),"mixed batch active conflict rejects all additions");
+        check(!(await store.ReadAsync()).Rooms.Any(r=>r.Number==101||r.Number==901),"failed batch does not reactivate deleted room or create new room");
+        await store.AddRoomsAsync("101,901",4,"亲子房");
+        added=(await store.ReadAsync()).Rooms.Single(r=>r.Number==101);
+        check(added.Floor==4&&added.Type=="亲子房"&&added.DefaultPriceCents==null&&(await store.ReadAsync()).Rooms.Any(r=>r.Number==901),"mixed batch re-add and new room succeeds and clears omitted price");
+        for(var cycle=0;cycle<3;cycle++){
+            await store.DeleteRoomAsync(added.Id,added.Version,password);await store.AddRoomAsync(101,4,"亲子房");
+            var next=(await store.ReadAsync()).Rooms.Single(r=>r.Number==101);
+            check(next.Id==added.Id&&next.Version==added.Version+2,"repeated delete and re-add increments version");added=next;
+        }
+        await store.DeleteRoomAsync(added.Id,added.Version,password);
         var deleted=(await store.ReadAsync(true)).Rooms.Single(r=>r.Id==room.Id);check(deleted.IsDeleted,"management can see deleted room");
         await store.RestoreRoomAsync(deleted.Id,deleted.Version);check((await store.ReadAsync()).Rooms.Single(r=>r.Id==room.Id).StatusKey=="dirty","restored room requires cleaning");
         var reopened=new BoardStore(store.DatabasePath);await reopened.InitializeAsync();check(await reopened.ReadHotelNameAsync()=="云栖酒店","hotel name persists across restart");

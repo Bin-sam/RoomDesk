@@ -215,6 +215,13 @@ with tempfile.TemporaryDirectory(prefix="roomdesk-api-") as temp:
         archived=next(r for r in json.loads(request("/api/rooms/manage")[1])["snapshot"]["rooms"] if r["number"]==701)
         check(archived["isDeleted"],"management exposes recoverable deleted room")
         check(request(f'/api/rooms/{vacant["id"]}/restore',{"version":archived["version"]},token)[0]==200,"room recovery accepted")
+        current=next(r for r in json.loads(request("/api/board")[1])["snapshot"]["rooms"] if r["number"]==701)
+        check(request(delete,{"version":current["version"],"password":password},token)[0]==200,"delete restored room for re-add regression")
+        check(request("/api/rooms",{"number":701,"floor":8,"type":"重加房型","defaultPrice":456},token)[0]==200,"single add accepts deleted number over HTTP")
+        current=next(r for r in json.loads(request("/api/board")[1])["snapshot"]["rooms"] if r["number"]==701)
+        check(current["id"]==vacant["id"] and current["floor"]==8 and current["defaultPriceCents"]==45600,"HTTP re-add applies new details and reuses historical identity")
+        check(request(delete,{"version":current["version"],"password":password},token)[0]==200,"delete re-added room for batch regression")
+        check(request("/api/rooms/batch",{"numbers":"701,951","floor":8,"type":"批量重加"},token)[0]==200,"HTTP batch accepts deleted and new numbers together")
         storage=json.loads(request("/api/storage")[1]);check(storage["journalMode"]=="wal" and storage["synchronous"]==2,"HTTP connection uses WAL FULL")
         def card(number):
             return next(r for r in json.loads(request("/api/board")[1])["snapshot"]["rooms"] if r["number"]==number)

@@ -1,5 +1,10 @@
 ﻿param([Parameter(Mandatory=$true)][string]$PlanPath,[switch]$NoErrorDialog)
 $ErrorActionPreference='Stop'
+# A parent PowerShell 7 session can pass incompatible module paths to Windows PowerShell 5.
+# Use this interpreter's built-in modules for hashing and process/file commands.
+$env:PSModulePath=Join-Path $PSHOME 'Modules'
+Import-Module Microsoft.PowerShell.Utility -ErrorAction Stop
+Import-Module Microsoft.PowerShell.Management -ErrorAction Stop
 $plan=Get-Content -LiteralPath $PlanPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $status=Join-Path (Split-Path $PlanPath) 'result.json'
 function Start-RoomDesk {Start-Process -FilePath $plan.Application -ArgumentList @('--data',('"'+$plan.Database+'"')) | Out-Null}

@@ -44,12 +44,25 @@ public sealed partial class BoardStore
         try
         {
             await using var db=Open();await using var tx=await db.Database.BeginTransactionAsync();
-            var conflicts=await db.Rooms.Where(r=>numbers.Contains(r.RoomNumber)).Select(r=>r.RoomNumber).OrderBy(n=>n).ToListAsync();
+            var archived=await db.BoardStates.IgnoreQueryFilters().Include(s=>s.Room)
+                .Where(s=>s.IsDeleted&&numbers.Contains(s.Room.RoomNumber)).ToDictionaryAsync(s=>s.Room.RoomNumber);
+            var existing=await db.Rooms.Where(r=>numbers.Contains(r.RoomNumber)).Select(r=>r.RoomNumber).ToListAsync();
+            var conflicts=existing.Where(n=>!archived.ContainsKey(n)).OrderBy(n=>n).ToList();
             if(conflicts.Count>0)throw new BoardException("以下房号已存在："+string.Join("、",conflicts)+"。本批未添加任何房间。");
+            var archivedIds=archived.Values.Select(s=>s.RoomId).ToArray();
+            if(await db.GuestRegistrations.AnyAsync(g=>archivedIds.Contains(g.RoomId)&&g.CheckedOutAtUtc==null))
+                throw new BoardException("已删除房间仍有关联的在住记录，请先核对记录。本批未添加任何房间。");
             foreach(var number in numbers)
             {
-                db.BoardStates.Add(new BoardState {TypeName=name,DefaultPriceCents=price,Room=new Room {RoomNumber=number,FloorNumber=floor,RoomType=roomType,Status=RoomStatus.ScheduledCleaning,LastCleaned=null},IsClean=false});
-                db.Activities.Add(new RoomActivity {RoomNumber=number,Action=numbers.Count==1?"新增房间":"批量新增房间",Before="—",After="空房 / 待清扫 / 正常",AtUtc=DateTime.UtcNow});
+                if(archived.TryGetValue(number,out var state))
+                {
+                    // Reuse the identity so historical stays and bills retain their room link.
+                    state.IsDeleted=false;state.Version++;state.Occupancy=Occupancy.Vacant;state.Service=ServiceState.Normal;state.IsClean=false;
+                    state.TypeName=name;state.DefaultPriceCents=price;ClearReservation(state);
+                    state.Room.FloorNumber=floor;state.Room.RoomType=roomType;state.Room.Status=RoomStatus.ScheduledCleaning;state.Room.LastCleaned=null;
+                }
+                else db.BoardStates.Add(new BoardState {TypeName=name,DefaultPriceCents=price,Room=new Room {RoomNumber=number,FloorNumber=floor,RoomType=roomType,Status=RoomStatus.ScheduledCleaning,LastCleaned=null},IsClean=false});
+                db.Activities.Add(new RoomActivity {RoomNumber=number,Action=state is not null?"重新添加已删除房间":numbers.Count==1?"新增房间":"批量新增房间",Before=state is not null?"已删除":"—",After="空房 / 待清扫 / 正常",AtUtc=DateTime.UtcNow});
             }
             await db.SaveChangesAsync();await tx.CommitAsync();return numbers;
         }
