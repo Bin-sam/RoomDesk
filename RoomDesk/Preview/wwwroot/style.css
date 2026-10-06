@@ -31,3 +31,5 @@
 .storage-details{white-space:pre-line}
 
 #hotel-name-heading{display:inline-block;max-width:260px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;white-space:nowrap}.management-table th,.management-table td{padding:10px 9px}.management-table button{white-space:nowrap}
+
+.room-edit-dialog{width:min(500px,90vw)}.room-edit-dialog label{display:grid;gap:8px;margin:14px 0}.remember-password{display:flex!important;align-items:center;gap:8px!important}.remember-password input{width:auto!important}.room-edit-dialog .platform-chip-list{display:flex;gap:6px;flex-wrap:wrap}

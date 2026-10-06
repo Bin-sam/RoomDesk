@@ -125,6 +125,7 @@ try
     await ReservationChecks.Run(root,Assert,Rejected);
     await PlatformPresetChecks.Run(root,Assert,Rejected);
     await RoomManagementChecks.Run(root,Assert,Rejected);
+    await EditingUpdateChecks.Run(root,Assert,Rejected);
     await LongevityChecks.Run(root,Assert,Rejected);
     var large = new BoardStore(Path.Combine(root, "large.db")); await large.InitializeAsync(300); await large.ReadAsync();
     var timings = new List<double>();

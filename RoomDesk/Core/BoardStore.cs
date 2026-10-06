@@ -13,8 +13,10 @@ public sealed partial class BoardStore
     public string DatabasePath { get; }
     public static string DefaultDatabasePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RoomDeskPrototype", "rooms-v1.db");
-    public BoardStore(string path)
+    private readonly TimeProvider clock;
+    public BoardStore(string path, TimeProvider? timeProvider = null)
     {
+        clock=timeProvider??TimeProvider.System;
         DatabasePath = Path.GetFullPath(path);
         Directory.CreateDirectory(Path.GetDirectoryName(DatabasePath)!);
     }

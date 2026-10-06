@@ -43,20 +43,13 @@ public sealed class RoomManagementWindow : Window
         DockPanel.SetDock(floorSummary,Dock.Bottom); list.Children.Add(floorSummary);
         foreach (var column in new[]{("房号","Number"),("楼层","Floor"),("房型","Type"),("当前房态","Status"),("默认价格（元）","DefaultPriceText")})
             table.Columns.Add(new DataGridTextColumn { Header = column.Item1, Binding = new Binding(column.Item2), Width = new DataGridLength(1,DataGridLengthUnitType.Star) });
+        var editButton=new FrameworkElementFactory(typeof(Button));editButton.SetValue(Button.ContentProperty,"编辑");editButton.AddHandler(Button.ClickEvent,new RoutedEventHandler(async(sender,_)=>{if(saving||(sender as Button)?.DataContext is not RoomCard room||room.IsDeleted)return;if(new RoomEditWindow(store,room){Owner=this}.ShowDialog()==true){try{await LoadAsync();feedback.Text="房间资料与状态已保存";}catch(Exception ex){feedback.Text=ex.Message;}}}));
+        table.Columns.Add(new DataGridTemplateColumn{Header="编辑",CellTemplate=new DataTemplate{VisualTree=editButton}});
         list.Children.Add(table);
         var form = new StackPanel { Margin = new Thickness(18), Background = Brushes.White };
         var formHost = new ScrollViewer { Content = form, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Background = Brushes.White }; Grid.SetColumn(formHost,1); layout.Children.Add(formHost);
         form.Children.Add(new TextBlock { Text = "新增房间", FontSize = 21, FontWeight = FontWeights.Bold });
         form.Children.Add(new TextBlock { Text = "房间总数按实际清单自动统计。添加后会同步到房态总览。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,12,0,0) });
-        var editPrice = new Button { Content = "设置选中房间默认价", Margin = new Thickness(0,0,0,10) }; DockPanel.SetDock(editPrice,Dock.Top); list.Children.Insert(0,editPrice);
-        editPrice.Click += async (_,_) =>
-        {
-            if(saving || table.SelectedItem is not RoomCard room){feedback.Text="请先选择一个房间。";return;}
-            var box=new TextBox{Text=room.DefaultPrice?.ToString("0.00",System.Globalization.CultureInfo.InvariantCulture)??""};var stack=new StackPanel{Margin=new Thickness(24)};stack.Children.Add(new TextBlock{Text=$"{room.Number} 号房默认价格（元）",Margin=new Thickness(0,0,0,12)});stack.Children.Add(box);var ok=new Button{Content="保存",Margin=new Thickness(0,14,0,0),IsDefault=true};stack.Children.Add(ok);var err=new TextBlock{TextWrapping=TextWrapping.Wrap};stack.Children.Add(err);
-            var dialog=new Window{Title="设置默认价格",Owner=this,Width=350,SizeToContent=SizeToContent.Height,WindowStartupLocation=WindowStartupLocation.CenterOwner,Content=stack};bool updating=false;
-            ok.Click+=async(_,_)=>{if(updating)return;if(!decimal.TryParse(box.Text,System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,System.Globalization.CultureInfo.InvariantCulture,out var price)){err.Text="价格格式不正确。";return;}updating=true;ok.IsEnabled=false;try{await Task.Run(()=>store.SetRoomPriceAsync(room.Id,room.Version,price));updating=false;dialog.DialogResult=true;}catch(Exception ex){err.Text=ex.Message;}finally{updating=false;ok.IsEnabled=true;}};dialog.Closing+=(_,e)=>{if(updating)e.Cancel=true;};
-            if(dialog.ShowDialog()==true){try{await LoadAsync();feedback.Text="默认价格已更新，历史售出价保持原值。";}catch(Exception ex){feedback.Text=ex.Message;}}
-        };
         var deleteRoom=new Button{Content="删除选中房间 🔒 / 恢复",Margin=new Thickness(0,0,0,10)};DockPanel.SetDock(deleteRoom,Dock.Top);list.Children.Insert(0,deleteRoom);
         deleteRoom.Click+=async(_,_)=>{if(saving||table.SelectedItem is not RoomCard room){feedback.Text="请先选择房间。";return;}saving=true;try{if(room.IsDeleted){await Task.Run(()=>store.RestoreRoomAsync(room.Id,room.Version));}else{await PasswordPrompt.RunAsync(this,store,$"删除 {room.Number} 号房（历史保留，可恢复）",password=>Task.Run(()=>store.DeleteRoomAsync(room.Id,room.Version,password)));}await LoadAsync();}catch(Exception ex){feedback.Text=ex.Message;}finally{saving=false;}};
         var defaultPrice = new TextBox();

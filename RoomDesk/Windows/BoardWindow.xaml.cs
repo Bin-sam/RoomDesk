@@ -102,6 +102,17 @@ public partial class BoardWindow : Window, INotifyPropertyChanged
             new CheckInWindow(store, room, true, guest) { Owner = this }.ShowDialog();
         }, "已读取入住信息");
     }
+    private async void EditRoom_Click(object sender,RoutedEventArgs e){if(!CanOperate||Selected is not {} room)return;if(new RoomEditWindow(store,room){Owner=this}.ShowDialog()==true)await RunAsync(ReloadAsync,"房间修改已保存");}
+    private async void EditGuest_Click(object sender,RoutedEventArgs e){
+        if(!CanOperate||Selected is not {} room)return;
+        await RunAsync(async()=>{
+            bool saved=false;
+            if(room.Occupancy=="Occupied"){var guest=await Task.Run(()=>store.GetCurrentGuestAsync(room.Id));saved=new CheckInWindow(store,room,guest:guest,edit:true){Owner=this}.ShowDialog()==true;}
+            else if(room.Occupancy=="Reserved"){var booking=await Task.Run(()=>store.GetReservationAsync(room.Id));saved=new ReservationWindow(store,room,reservation:booking,edit:true){Owner=this}.ShowDialog()==true;}
+            else {MessageBox.Show(this,"请先选择在住或已预订房间。");return;}
+            if(saved)await ReloadAsync();
+        },"已同步房态");
+    }
     private void Security_Click(object sender,RoutedEventArgs e)=>new DataSecurityWindow(store){Owner=this}.ShowDialog();
     private void Bills_Click(object sender,RoutedEventArgs e)=>new BillingWindow(store){Owner=this}.ShowDialog();
     private void History_Click(object sender, RoutedEventArgs e)

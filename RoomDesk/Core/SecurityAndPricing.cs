@@ -14,8 +14,16 @@ public sealed class SecuritySetting
     public DateTime? LockedUntilUtc { get; set; }
 }
 
+public sealed record OperationSession(string Token,DateTimeOffset ExpiresAt);
+
 public sealed partial class BoardStore
 {
+    private readonly Dictionary<string,(DateTimeOffset Expiry,string Hash)> sessions=new();
+    public async Task<OperationSession> UnlockAsync(string password){
+        var token=await AuthenticateAsync(password,null,true);return new(token!,clock.GetUtcNow().AddMinutes(5));
+    }
+    public async Task LockSessionAsync(string token){await securityGate.WaitAsync();try{sessions.Remove(token);}finally{securityGate.Release();}}
+    public async Task<bool> SessionValidAsync(string token){await securityGate.WaitAsync();try{await using var db=Open();var hash=await db.SecuritySettings.Select(s=>s.Hash).SingleOrDefaultAsync();return sessions.TryGetValue(token,out var entry)&&entry.Expiry>clock.GetUtcNow()&&entry.Hash==hash;}finally{securityGate.Release();}}
     private readonly SemaphoreSlim securityGate = new(1,1);
     private async Task UpgradeAsync(BoardDbContext db)
     {
@@ -53,11 +61,12 @@ public sealed partial class BoardStore
     public async Task<bool> HasPasswordAsync() { await using var db=Open();return await db.SecuritySettings.AnyAsync(); }
     public Task SetPasswordAsync(string newPassword,string? currentPassword=null)
     {
+        if(newPassword.StartsWith("roomdesk-session:",StringComparison.Ordinal))throw new BoardException("请使用其他密码开头。");
         if(string.IsNullOrWhiteSpace(newPassword)||newPassword.Length is <8 or >128) throw new BoardException("密码须为 8–128 位，不能全为空格。");
         return AuthenticateAsync(currentPassword,newPassword);
     }
     private Task RequirePasswordAsync(string? password)=>AuthenticateAsync(password,null);
-    private async Task AuthenticateAsync(string? password,string? replacement)
+    private async Task<string?> AuthenticateAsync(string? password,string? replacement,bool issueSession=false)
     {
         await securityGate.WaitAsync();
         try
@@ -65,6 +74,10 @@ public sealed partial class BoardStore
             await using var db=Open();await using var tx=await db.Database.BeginTransactionAsync();
             var setting=await db.SecuritySettings.SingleOrDefaultAsync();string? error=null;
             if(setting==null && replacement==null) error="请先在数据与安全页面设置操作密码。";
+            if(setting!=null && replacement==null && !issueSession && password?.StartsWith("roomdesk-session:")==true){
+                if(!sessions.TryGetValue(password,out var entry)||entry.Expiry<=clock.GetUtcNow()||entry.Hash!=setting.Hash){sessions.Remove(password);throw new BoardException("免密授权已过期，请重新输入密码。");}
+                await tx.CommitAsync();return null;
+            }
             if(setting!=null)
             {
                 if(setting.LockedUntilUtc>DateTime.UtcNow) error="密码错误次数过多，请一分钟后重试。";
@@ -90,6 +103,13 @@ public sealed partial class BoardStore
             }
             await db.SaveChangesAsync();await tx.CommitAsync();
             if(error!=null)throw new BoardException(error);
+            if(replacement!=null)sessions.Clear();
+            if(issueSession){
+                foreach(var key in sessions.Where(p=>p.Value.Expiry<=clock.GetUtcNow()).Select(p=>p.Key).ToList())sessions.Remove(key);
+                if(sessions.Count>=32)sessions.Clear();
+                var token="roomdesk-session:"+Convert.ToHexString(RandomNumberGenerator.GetBytes(32));sessions[token]=(clock.GetUtcNow().AddMinutes(5),setting!.Hash);return token;
+            }
+            return null;
         }
         finally{securityGate.Release();}
     }

@@ -19,6 +19,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Check release version consistency
+        shell: pwsh
+        run: |
+          $source = Get-Content RoomDesk/Core/SoftwareUpdates.cs -Raw
+          $tag = [regex]::Match($source,'CurrentTag="([^"]+)"').Groups[1].Value
+          $version = [regex]::Match($source,'CurrentVersion="([^"]+)"').Groups[1].Value
+          $props = [xml](Get-Content RoomDesk/Directory.Build.props -Raw)
+          if ($props.Project.PropertyGroup.Version -ne $version -or $version -ne '0.8.0') { throw 'Release version mismatch' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $tag) { throw 'Tag does not match the built updater version' }
       - name: Test shared core
         shell: pwsh
         run: |
@@ -39,19 +48,19 @@ jobs:
       - name: Publish self-contained Windows app
         shell: pwsh
         run: |
-          dotnet publish RoomDesk/Windows/Windows.csproj -c Release -r win-x64 --self-contained true -p:Version=0.7.0 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o RoomDesk/artifacts/windows-x64
+          dotnet publish RoomDesk/Windows/Windows.csproj -c Release -r win-x64 --self-contained true -p:Version=0.8.0 -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o RoomDesk/artifacts/windows-x64
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build installer and portable archive
         shell: pwsh
         run: |
           $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (!(Test-Path $compiler)) { throw 'Inno Setup compiler is unavailable on this runner.' }
-          & $compiler /DAppVersion=0.7.0 RoomDesk/installer/RoomDesk.iss
+          & $compiler /DAppVersion=0.8.0 RoomDesk/installer/RoomDesk.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item LICENSE RoomDesk/artifacts/windows-x64/LICENSE
           Copy-Item RoomDesk/installer/INSTALL-WINDOWS.txt RoomDesk/artifacts/windows-x64/
           Copy-Item RoomDesk/installer/licenses RoomDesk/artifacts/windows-x64/licenses -Recurse
-          Compress-Archive -Path RoomDesk/artifacts/windows-x64/* -DestinationPath RoomDesk/artifacts/release/RoomDesk-Portable-0.7.0-win-x64.zip
+          Compress-Archive -Path RoomDesk/artifacts/windows-x64/* -DestinationPath RoomDesk/artifacts/release/RoomDesk-Portable-0.8.0-win-x64.zip
       - name: Generate checksums
         shell: pwsh
         run: |
@@ -77,7 +86,7 @@ jobs:
           path: RoomDesk/artifacts/release
       - name: Extract the built application
         shell: pwsh
-        run: Expand-Archive RoomDesk/artifacts/release/RoomDesk-Portable-0.7.0-win-x64.zip RoomDesk/artifacts/portable
+        run: Expand-Archive RoomDesk/artifacts/release/RoomDesk-Portable-0.8.0-win-x64.zip RoomDesk/artifacts/portable
       - name: Gate million-row latency and native WPF memory
         shell: pwsh
         run: ./RoomDesk/installer/performance-gate.ps1 -Application "$PWD/RoomDesk/artifacts/portable/RoomDesk.exe"
@@ -91,7 +100,7 @@ jobs:
   installer:
     needs: windows
     runs-on: windows-2022
-    timeout-minutes: 10
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -104,7 +113,20 @@ jobs:
       - name: Test installation, launch, reinstall and uninstall
         timeout-minutes: 6
         shell: pwsh
-        run: ./RoomDesk/installer/smoke-install.ps1 -Installer "$PWD/RoomDesk/artifacts/release/RoomDesk-Setup-0.7.0-win-x64.exe"
+        run: ./RoomDesk/installer/smoke-install.ps1 -Installer "$PWD/RoomDesk/artifacts/release/RoomDesk-Setup-0.8.0-win-x64.exe"
+      - name: Test update helper across versions
+        timeout-minutes: 7
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./RoomDesk/installer/smoke-upgrade.ps1 -Installer "$PWD/RoomDesk/artifacts/release/RoomDesk-Setup-0.8.0-win-x64.exe"
+      - name: Preserve upgrade evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RoomDesk-upgrade-validation
+          path: RoomDesk/artifacts/upgrade-validation/*
+          if-no-files-found: ignore
       - name: Preserve installer diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -128,4 +150,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" RoomDesk/artifacts/release/* --verify-tag --prerelease --title "RoomDesk 0.7.0 — Windows preview" --notes-file RoomDesk/installer/RELEASE-NOTES.md
+        run: gh release create "$RELEASE_TAG" RoomDesk/artifacts/release/* --verify-tag --prerelease --title "RoomDesk 0.8.0 — Windows preview" --notes-file RoomDesk/installer/RELEASE-NOTES.md

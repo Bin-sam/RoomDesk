@@ -7,9 +7,9 @@ namespace RoomDesk.Windows;
 public sealed class ReservationWindow : Window
 {
     private bool saving;
-    public ReservationWindow(BoardStore store, RoomCard room, bool readOnly=false, ReservationInput? reservation=null)
+    public ReservationWindow(BoardStore store, RoomCard room, bool readOnly=false, ReservationInput? reservation=null,bool edit=false)
     {
-        Title=readOnly?"预订信息":"办理预订"; Width=480; Height=500; MinHeight=350;
+        Title=readOnly?"预订信息":edit?"编辑预订信息":"办理预订"; Width=480; Height=500; MinHeight=350;
         WindowStartupLocation=WindowStartupLocation.CenterOwner; FontFamily=new FontFamily("Microsoft YaHei UI, Segoe UI");FontSize=14;
         var panel=new StackPanel { Margin=new Thickness(28) };
         Content=new ScrollViewer { Content=panel,VerticalScrollBarVisibility=ScrollBarVisibility.Auto };
@@ -35,7 +35,7 @@ public sealed class ReservationWindow : Window
             try{
                 var input=BoardStore.ValidateReservation(new(name.Text,platform.Text,phone.Text));
                 saving=true;save.IsEnabled=cancel.IsEnabled=false;
-                await Task.Run(()=>store.ChangeAsync(room.Id,room.Version,"Reserve",reservation:input));
+                await Task.Run(()=>edit?store.EditReservationAsync(room.Id,room.Version,input):store.ChangeAsync(room.Id,room.Version,"Reserve",reservation:input));
                 saving=false;DialogResult=true;
             }catch(Exception ex){error.Text=ex.Message;error.Foreground=Brushes.Firebrick;}
             finally{saving=false;save.IsEnabled=cancel.IsEnabled=true;}
