@@ -21,10 +21,32 @@ public partial class BoardWindow : Window, INotifyPropertyChanged
     public int UnavailableCount => snapshot.Unavailable;
     public bool CanOperate { get; private set; } = true;
     public int RoomColumns { get; private set; } = 8;
-    private void Board_SizeChanged(object sender, SizeChangedEventArgs e)
+    public double RoomCardHeight { get; private set; } = 120;
+    private double roomScale = .8;
+    public double RoomNumberSize => Math.Max(17,30*roomScale);
+    public double RoomTypeSize => Math.Max(11,20*roomScale);
+    public double RoomCaptionSize => Math.Max(11,16*roomScale);
+    public double RoomStatusSize => Math.Max(12,18*roomScale);
+    public double RoomCleanSize => Math.Max(10,14*roomScale);
+    public double RoomTypeLineHeight => RoomTypeSize*1.15;
+    public double RoomTypeHeight => RoomTypeLineHeight*2;
+    private void Board_SizeChanged(object sender, SizeChangedEventArgs e) => FitBoard();
+    private void FitBoard()
     {
-        var columns = e.NewSize.Width >= 870 ? 8 : 4;
-        if (columns != RoomColumns) { RoomColumns = columns; Notify(); }
+        if(BoardArea is null || Floors.Count==0 || BoardArea.ActualWidth<1 || BoardArea.ActualHeight<1)return;
+        var width=BoardArea.ActualWidth-46;var height=BoardArea.ActualHeight-8;
+        var bestScale=double.MinValue;var bestColumns=1;var bestHeight=120d;
+        var minColumns=Math.Max(1,(int)Math.Ceiling(width/200));
+        var limit=Math.Max(minColumns,Math.Min(Floors.Max(f=>f.Rooms.Count),Math.Max(1,(int)(width/54))));
+        for(var columns=minColumns;columns<=limit;columns++){
+            var rows=Floors.Sum(f=>(int)Math.Ceiling(f.Rooms.Count/(double)columns));
+            var cardWidth=width/columns-7;
+            var cardHeight=Math.Min(180,Math.Floor((height-Floors.Count*12)/rows));
+            var scale=Math.Min(1.15,Math.Min((cardWidth-14)/100,(cardHeight-16)/126));
+            if(scale>bestScale){bestScale=scale;bestColumns=columns;bestHeight=cardHeight;}
+        }
+        // Large inventories keep legible text and retain the virtualized scrolling board.
+        RoomColumns=bestColumns;RoomCardHeight=Math.Max(88,bestHeight);roomScale=Math.Max(.55,bestScale);Notify();
     }
     private readonly CancellationTokenSource lifetime=new();
     private bool loaded;
@@ -60,6 +82,7 @@ public partial class BoardWindow : Window, INotifyPropertyChanged
             && (floor == "全部楼层" || floor == $"{r.Floor} 楼")
             && (status == "all" || (status == "dirty" ? !r.IsClean : r.StatusKey == status))).ToList();
         Floors = rooms.GroupBy(r => r.Floor).Select(g => new FloorGroup($"{g.Key:00}", g.ToList())).ToList();
+        FitBoard();
         ResultText = rooms.Count == 0 ? "没有符合条件的房间，请调整筛选。" : $"显示 {rooms.Count} / {snapshot.Rooms.Count} 间 · 点击房间查看详情";
         Notify();
     }

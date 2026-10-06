@@ -33,3 +33,35 @@
 #hotel-name-heading{display:inline-block;max-width:260px;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;white-space:nowrap}.management-table th,.management-table td{padding:10px 9px}.management-table button{white-space:nowrap}
 
 .room-edit-dialog{width:min(500px,90vw)}.room-edit-dialog label{display:grid;gap:8px;margin:14px 0}.remember-password{display:flex!important;align-items:center;gap:8px!important}.remember-password input{width:auto!important}.room-edit-dialog .platform-chip-list{display:flex;gap:6px;flex-wrap:wrap}
+
+/* Size the desktop board from the available viewport and visible room count. */
+@media(min-width:900px){
+ body:has(.room-board-page){overflow:hidden}
+ main.room-board-page{height:100dvh;display:flex;flex-direction:column;padding:14px 18px 10px}
+ .room-board-page header{flex-shrink:0;margin-bottom:12px}
+ .room-board-page .stats{flex-shrink:0;margin-bottom:12px}
+ .room-board-page .stat{padding:10px 14px}
+ .room-board-page .workspace{flex:1;min-height:0;grid-template-columns:minmax(0,1fr) 210px;gap:14px}
+ .room-board-page .board{display:flex;flex-direction:column;min-height:0}
+ .room-board-page .toolbar,.room-board-page .legend{flex-shrink:0}
+ .room-board-page .legend{padding:8px 0}
+ .room-board-page #rooms{flex:1;min-height:0;overflow:auto;align-content:start;gap:8px;padding:3px}
+ .room-board-page .floor-row{grid-template-columns:32px minmax(0,1fr);gap:6px;min-height:0}
+ .room-board-page .room-grid{grid-template-columns:repeat(var(--board-columns,11),minmax(0,1fr));gap:6px}
+ .room-board-page .room{height:var(--card-height,120px);min-height:0;padding:6px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+ .room-board-page .room-top{gap:2px;flex-shrink:0}
+ .room-board-page .room-number{font-size:var(--card-number,22px);line-height:1.05}
+ .room-board-page .room-type{font-size:var(--card-type,15px);line-height:1.15;height:2.3em;flex-shrink:0}
+ .room-board-page .room-guest,.room-board-page .room-meta{font-size:var(--card-caption,12px);height:1.2em;line-height:1.2;margin-top:2px;flex-shrink:0}
+ .room-board-page .room-bottom{margin-top:2px;line-height:1.15;flex-shrink:0}
+ .room-board-page .room-bottom b{font-size:var(--card-status,14px)}
+ .room-board-page .clean-alert{font-size:var(--card-clean,11px);padding:1px 2px}
+ .room-board-page .detail{position:static;min-height:0;max-height:100%;overflow:auto;padding:12px}
+ .room-board-page footer{flex-shrink:0;margin-top:8px;padding-top:8px}
+}
+@media(min-width:900px) and (max-height:700px){
+ .room-board-page header p,.room-board-page .stat-hint{display:none}
+ .room-board-page .stat-value{font-size:28px}
+ .room-board-page .stat{padding:8px 12px}
+ .room-board-page header{margin-bottom:8px}
+}

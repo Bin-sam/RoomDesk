@@ -2,13 +2,13 @@ param([Parameter(Mandatory=$true)][string]$Installer)
 $ErrorActionPreference='Stop'
 $root=Join-Path $env:RUNNER_TEMP ('RoomDesk-upgrade-'+[guid]::NewGuid())
 New-Item -ItemType Directory $root|Out-Null
-$old=Join-Path $root 'RoomDesk-Setup-0.8.1-win-x64.exe'
+$old=Join-Path $root 'RoomDesk-Setup-0.8.2-win-x64.exe'
 $target=Join-Path $root '安装目录 with spaces';$database=Join-Path $root '住客记录.db';$snapshot=Join-Path $root 'before.json';$backup=Join-Path $root 'before.db'
 $p=$null;$helper=$null
 try {
-    gh release download roomdesk-v0.8.1-preview.1 --repo Bin-sam/RoomDesk --pattern RoomDesk-Setup-0.8.1-win-x64.exe --dir $root
+    gh release download roomdesk-v0.8.2-preview.1 --repo Bin-sam/RoomDesk --pattern RoomDesk-Setup-0.8.2-win-x64.exe --dir $root
     if($LASTEXITCODE -ne 0){throw 'Previous release download failed'}
-    if((Get-FileHash $old -Algorithm SHA256).Hash.ToLower() -ne '01624ed6457c522c4bfd3229a91aab2d1ef204cbdb4d88abc94588721c59cc9a'){throw 'Previous release checksum mismatch'}
+    if((Get-FileHash $old -Algorithm SHA256).Hash.ToLower() -ne '0c736115672cfa611cb85b6bb6fb1ed09514d4ee2f32c271ca57b12d9b3f5dc4'){throw 'Previous release checksum mismatch'}
     $setup=Start-Process $old -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',('/DIR="'+$target+'"')) -PassThru
     if(!$setup.WaitForExit(120000) -or $setup.ExitCode -ne 0){throw 'Previous release installation failed'}
     $application=Join-Path $target 'RoomDesk.exe'
@@ -23,7 +23,7 @@ try {
     do{Start-Sleep -Milliseconds 100;$p.Refresh()}while($p.MainWindowHandle -eq 0 -and !$p.HasExited -and (Get-Date) -lt $deadline)
     if($p.HasExited -or $p.MainWindowHandle -eq 0){throw 'Old-version window missing'}
     $plan=Join-Path $root 'plan.json'
-    @{ProcessId=$p.Id;Application=$application;Database=$database;Installer=$Installer;InstallDirectory=$target;Backup=$backup;Sha256=(Get-FileHash $Installer -Algorithm SHA256).Hash;Version='roomdesk-v0.8.2-preview.1'}|ConvertTo-Json|Set-Content $plan -Encoding UTF8
+    @{ProcessId=$p.Id;Application=$application;Database=$database;Installer=$Installer;InstallDirectory=$target;Backup=$backup;Sha256=(Get-FileHash $Installer -Algorithm SHA256).Hash;Version='roomdesk-v0.8.3-preview.1'}|ConvertTo-Json|Set-Content $plan -Encoding UTF8
     # Exact helper source embedded in the new app; run with the same Windows PowerShell used by the UI.
     $script=Join-Path $PSScriptRoot '../Windows/Resources/update.ps1'
     $powershell=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
@@ -38,10 +38,10 @@ try {
     do{Start-Sleep -Milliseconds 200;$newApp=Get-Process RoomDesk -ErrorAction SilentlyContinue|Where-Object{$_.Path -eq $application -and $_.MainWindowHandle -ne 0}|Select-Object -First 1}while($null -eq $newApp -and (Get-Date) -lt $deadline)
     if($null -eq $newApp){throw 'Updated application did not restart with a window'}
     $p=$newApp
-    if(!([Diagnostics.FileVersionInfo]::GetVersionInfo($application).ProductVersion.StartsWith('0.8.2'))){throw 'Wrong installed version'}
+    if(!([Diagnostics.FileVersionInfo]::GetVersionInfo($application).ProductVersion.StartsWith('0.8.3'))){throw 'Wrong installed version'}
     python "$PSScriptRoot/upgrade-fixture.py" verify $database $snapshot $backup
     if($LASTEXITCODE -ne 0){throw 'Upgrade altered hotel data'}
-    Write-Output 'PASS: update helper installs 0.8.2 over 0.8.1, automatically restarts, and preserves data.'
+    Write-Output 'PASS: update helper installs 0.8.3 over 0.8.2, automatically restarts, and preserves data.'
 } finally {
     if($null -ne $helper -and !$helper.HasExited){$helper.Kill($true)}
     if($null -ne $p -and !$p.HasExited){$p.CloseMainWindow()|Out-Null;if(!$p.WaitForExit(5000)){$p.Kill()}}

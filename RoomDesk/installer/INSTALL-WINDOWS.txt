@@ -1,6 +1,6 @@
-栖间 RoomDesk 0.8.2 预览版 — Windows 安装说明
+栖间 RoomDesk 0.8.3 预览版 — Windows 安装说明
 
-1. 运行 RoomDesk-Setup-0.8.2-win-x64.exe，按安装向导完成安装。
+1. 运行 RoomDesk-Setup-0.8.3-win-x64.exe，按安装向导完成安装。
    适用 Windows 10/11 x64；目标 Windows 10 22H2。包含 .NET 运行环境。
    向导为英文，程序界面为中文。无需管理员权限。
 2. 从开始菜单或桌面打开 RoomDesk。
