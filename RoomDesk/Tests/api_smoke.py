@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory(prefix="roomdesk-api-") as temp:
 
     def start():
         global process
-        process = subprocess.Popen([str(dotnet), str(dll), "--port", str(port), "--data", str(dbpath)],
+        process = subprocess.Popen([str(dotnet), str(dll), "--port", str(port), "--data", str(dbpath), "--sampleRooms", "24"],
                                    cwd=root / "Preview", stdout=log, stderr=log)
         for _ in range(100):
             if process.poll() is not None:

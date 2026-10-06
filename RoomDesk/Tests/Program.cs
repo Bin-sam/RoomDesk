@@ -12,12 +12,12 @@ async Task<RoomCard> Room(int number) => (await store.ReadAsync()).Rooms.Single(
 async Task Change(int number, string action) { var r = await Room(number); await store.ChangeAsync(r.Id, r.Version, action, action == "CheckIn" ? new GuestInput("测试住客", SalePrice: 199m) : null, action == "Reserve" ? new ReservationInput("预订测试", "线下") : null); }
 try
 {
-    await store.InitializeAsync();
+    await store.InitializeAsync(24);
     await store.SetPasswordAsync("Test-only-pass-2026");
     var initial = await store.ReadAsync();
     Assert(initial.Rooms.Count == 24 && initial.Rooms.Select(r => r.Floor).Distinct().Count() == 3, "24 sample rooms / 3 floors");
     Assert(initial.Ready == 13 && initial.Occupied == 3 && initial.Reserved == 3 && initial.Dirty == 4 && initial.Unavailable == 2, "initial counters, including dirty maintenance room");
-    await store.InitializeAsync(); Assert((await store.ReadAsync()).Rooms.Count == 24, "initialization is idempotent");
+    await store.InitializeAsync(24); Assert((await store.ReadAsync()).Rooms.Count == 24, "initialization is idempotent");
     var stale = await Room(101);
     await Rejected(() => store.ChangeAsync(stale.Id, stale.Version, "CheckIn"), "check-in requires guest information");
     await Rejected(() => store.ChangeAsync(stale.Id, stale.Version, "CheckIn", new GuestInput("  ", SalePrice: 199m)), "whitespace-only guest rejected");
@@ -72,7 +72,7 @@ try
     using (var db = new SqliteConnection($"Data Source={backup}")) { db.Open(); using var cmd = db.CreateCommand(); cmd.CommandText = "PRAGMA integrity_check"; Assert((string?)cmd.ExecuteScalar() == "ok", "backup SQLite integrity_check"); }
     // Emulate a v0.1 database by removing only the new table from this disposable test DB.
     using (var old = new SqliteConnection($"Data Source={store.DatabasePath}")) { old.Open(); using var cmd = old.CreateCommand(); cmd.CommandText = "DROP TABLE GuestRegistrations; DROP TABLE StaySearch"; cmd.ExecuteNonQuery(); }
-    await store.InitializeAsync(); await store.InitializeAsync();
+    await store.InitializeAsync(24); await store.InitializeAsync(24);
     Assert((await store.ReadAsync()).Rooms.Count == 25 && (await Room(101)).StatusKey == "dirty", "v0.1 additive migration preserves existing room data and is repeatable");
     await Change(401, "Clean"); var newRoom = await Room(401);
     await store.ChangeAsync(newRoom.Id, newRoom.Version, "CheckIn", new GuestInput(" 测试住客二 ", "TEST-PHONE", "其他", "TEST-ONLY-001", "测试备注", SalePrice: 199m));
@@ -127,6 +127,7 @@ try
     await RoomManagementChecks.Run(root,Assert,Rejected);
     await EditingUpdateChecks.Run(root,Assert,Rejected);
     await LongevityChecks.Run(root,Assert,Rejected);
+    await DefaultRoomChecks.Run(root,Assert);
     var large = new BoardStore(Path.Combine(root, "large.db")); await large.InitializeAsync(300); await large.ReadAsync();
     var timings = new List<double>();
     for (int i = 0; i < 20; i++) { var sw = Stopwatch.StartNew(); var snapshot = await large.ReadAsync(); sw.Stop(); if(snapshot.Rooms.Count != 300)throw new Exception("incomplete snapshot"); timings.Add(sw.Elapsed.TotalMilliseconds); }

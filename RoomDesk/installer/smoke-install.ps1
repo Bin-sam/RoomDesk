@@ -38,7 +38,7 @@ try {
     # A window/file can appear before async initialization completes; wait for all seed rows.
     python "$PSScriptRoot/wait-initialized.py" $data
     if ($LASTEXITCODE -ne 0) { throw 'Installed application database initialization did not complete.' }
-    Write-Output 'PASS: installed EXE starts and initializes 24 rooms with a WPF window on Windows runner.'
+    Write-Output 'PASS: installed EXE starts and initializes 33 rooms with a WPF window on Windows runner.'
 } finally {
     if (!$p.HasExited) {
         $null = $p.CloseMainWindow()

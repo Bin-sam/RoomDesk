@@ -6,7 +6,7 @@ static class ReservationChecks
 {
     public static async Task Run(string root, Action<bool,string> check, Func<Func<Task>,string,Task> rejected)
     {
-        var store=new BoardStore(Path.Combine(root,"reservations.db"));await store.InitializeAsync();
+        var store=new BoardStore(Path.Combine(root,"reservations.db"));await store.InitializeAsync(24);
         async Task<RoomCard> Room()=> (await store.ReadAsync()).Rooms.Single(r=>r.Number==101);
         var room=await Room();
         foreach(var input in new ReservationInput?[]{null,new(" "),new("测试",new string('a',41)),new(new string('a',81)),new("测试","携程",new string('0',41))})
@@ -18,7 +18,7 @@ static class ReservationChecks
             check(reserved.ReservationName=="预订测试"&&reserved.BoardCaption=="预订测试"&&reserved.GuestLabel=="预订人：预订测试","reserved card displays reservation name");
             check(input?.Platform==platform&&input.Phone=="TEST-ONLY","reservation platform and phone persist");
             await rejected(()=>store.ChangeAsync(room.Id,room.Version,"Reserve",reservation:new("重复预订")),"duplicate stale reservation rejected");
-            var reopened=new BoardStore(store.DatabasePath);await reopened.InitializeAsync();
+            var reopened=new BoardStore(store.DatabasePath);await reopened.InitializeAsync(24);
             check((await reopened.GetReservationAsync(room.Id))==input,"reservation survives reopening and idempotent migration");
             await store.ChangeAsync(room.Id,reserved.Version,"CancelReservation");
             check((await Room()).ReservationName==null&&await store.GetReservationAsync(room.Id)==null,"cancel clears reservation details");
@@ -43,7 +43,7 @@ static class ReservationChecks
             cmd.ExecuteNonQuery();
         }
         var version=(await RoomVersion(store.DatabasePath,room.Id));
-        await store.InitializeAsync();await store.InitializeAsync();
+        await store.InitializeAsync(24);await store.InitializeAsync(24);
         var history=await store.SearchStaysAsync();
         check(history.Total==1&&history.Records[0].Platform==""&&history.Records[0].SalePrice==168,"old stays keep price and unknown platform after migration");
         check((await Room()).Version==version,"migration does not rewrite room version");

@@ -9,7 +9,7 @@ if (previewPort is <1024 or >65535) throw new ArgumentException("预览端口无
 builder.WebHost.UseUrls($"http://127.0.0.1:{previewPort}");
 var app = builder.Build();
 var store = new BoardStore(builder.Configuration["data"] ?? BoardStore.DefaultDatabasePath);
-await store.InitializeAsync();
+await store.InitializeAsync(builder.Configuration.GetValue<int?>("sampleRooms"));
 var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
 app.Use(async (context, next) => {
     if (context.Request.Host.Host != "127.0.0.1") { context.Response.StatusCode = 403; return; }

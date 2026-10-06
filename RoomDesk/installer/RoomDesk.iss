@@ -1,6 +1,6 @@
 ; Build on Windows using Inno Setup 6. An installer never carries a user database.
 #ifndef AppVersion
-  #define AppVersion "0.8.0"
+  #define AppVersion "0.8.1"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\windows-x64"

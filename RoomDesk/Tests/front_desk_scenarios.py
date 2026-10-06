@@ -82,7 +82,7 @@ with tempfile.TemporaryDirectory(prefix='roomdesk-frontdesk-') as temp:
     log=open(pathlib.Path(temp)/'server.log','w+')
     def start():
         global process,token
-        process=subprocess.Popen([DOTNET,str(ROOT/'Preview/bin/Release/net8.0/Preview.dll'),'--data',str(db)],cwd=ROOT/'Preview',stdout=log,stderr=log)
+        process=subprocess.Popen([DOTNET,str(ROOT/'Preview/bin/Release/net8.0/Preview.dll'),'--data',str(db),'--sampleRooms','24'],cwd=ROOT/'Preview',stdout=log,stderr=log)
         for _ in range(100):
             if process.poll() is not None: raise RuntimeError('server exited')
             try:

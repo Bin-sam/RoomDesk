@@ -4,7 +4,7 @@ static class RoomManagementChecks
 {
     public static async Task Run(string root,Action<bool,string> check,Func<Func<Task>,string,Task> rejected)
     {
-        var store=new BoardStore(Path.Combine(root,"room-batch.db"));await store.InitializeAsync();
+        var store=new BoardStore(Path.Combine(root,"room-batch.db"));await store.InitializeAsync(24);
         var baseline=(await store.ReadAsync()).Rooms;
         check(baseline.First().Type=="标准间","old enum room type still displayed");
         check(BoardStore.ParseRoomNumbers(" 401 – 403、405，407\n409至410 ").SequenceEqual(new[]{401,402,403,405,407,409,410}),"mixed batch ranges and separators parsed");
@@ -32,16 +32,16 @@ static class RoomManagementChecks
         const string password="Room-type-test-only-2026";await store.SetPasswordAsync(password);
         await rejected(()=>store.RemoveRoomTypePresetAsync(presets[0].Id,"wrong"),"room type delete rejects wrong password");
         await store.RemoveRoomTypePresetAsync(presets[0].Id,password);
-        var reopen=new BoardStore(store.DatabasePath);await reopen.InitializeAsync();
-        check(!(await reopen.ReadRoomTypePresetsAsync()).Any(p=>p.Name=="标准间"),"deleted default type chip stays hidden after restart");
+        var reopen=new BoardStore(store.DatabasePath);await reopen.InitializeAsync(24);
+        check(!(await reopen.ReadRoomTypePresetsAsync()).Any(p=>p.Name==presets[0].Name),"deleted default type chip stays hidden after restart");
         check((await reopen.ReadAsync()).Rooms.Single(r=>r.Number==401).Type=="亲子房"&&(await reopen.ReadAsync()).Rooms.First().Type=="标准间","custom types persist and removed chips do not change room types");
         check((await reopen.ReadPlatformPresetsAsync()).Count==4,"room type vocabulary independent of reservation platforms");
-        await reopen.AddRoomTypePresetAsync("标准间");check((await reopen.ReadRoomTypePresetsAsync()).Single(p=>p.Name=="标准间").Id==presets[0].Id,"re-adding room type restores same chip");
+        await reopen.AddRoomTypePresetAsync(presets[0].Name);check((await reopen.ReadRoomTypePresetsAsync()).Single(p=>p.Name==presets[0].Name).Id==presets[0].Id,"re-adding room type restores same chip");
         // Concurrent submissions must create one complete batch only.
         async Task<bool> Attempt(){try{await reopen.AddRoomsAsync("601-603",6,"双床房",99);return true;}catch(BoardException){return false;}}
         var results=await Task.WhenAll(Attempt(),Attempt());check(results.Count(x=>x)==1&&(await reopen.ReadAsync()).Rooms.Count(r=>r.Number>=601&&r.Number<=603)==3,"concurrent duplicate batches do not create duplicates");
         await reopen.AddRoomsAsync("1000-1199",10,"团体房",0);check((await reopen.ReadAsync()).Rooms.Count(r=>r.Number>=1000)==200,"200-room boundary accepted with zero price");
         using(var db=new SqliteConnection("Data Source="+store.DatabasePath)){db.Open();using var cmd=db.CreateCommand();cmd.CommandText="DROP TABLE RoomTypePresets";cmd.ExecuteNonQuery();}
-        await reopen.InitializeAsync();check((await reopen.ReadRoomTypePresetsAsync()).Count==5&&(await reopen.ReadAsync()).Rooms.Single(r=>r.Number==402).Type=="亲子房","preset migration preserves custom room data");
+        await reopen.InitializeAsync(24);check((await reopen.ReadRoomTypePresetsAsync()).Count==5&&(await reopen.ReadAsync()).Rooms.Single(r=>r.Number==402).Type=="亲子房","preset migration preserves custom room data");
     }
 }

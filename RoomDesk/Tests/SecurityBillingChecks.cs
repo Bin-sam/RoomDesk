@@ -5,7 +5,7 @@ public static class SecurityBillingChecks
 {
     public static async Task Run(string root,Action<bool,string> assert,Func<Func<Task>,string,Task> reject)
     {
-        var store=new BoardStore(Path.Combine(root,"billing.db"));await store.InitializeAsync();
+        var store=new BoardStore(Path.Combine(root,"billing.db"));await store.InitializeAsync(24);
         const string pass="Only-test-secret-123";
         assert(!await store.HasPasswordAsync(),"fresh database has no default password");
         await reject(()=>store.ExportStaysCsvAsync(),"unset password blocks record export");await reject(()=>store.BackupAsync(),"unset password blocks backup");
@@ -54,8 +54,8 @@ public static class SecurityBillingChecks
         assert(manyCsv.Split("分页账单").Length==106,"bill CSV exports all rows beyond preview limit");
         var backup=await store.BackupAsync(pass);assert(await new BoardStore(backup).HasPasswordAsync(),"protected backup retains security configuration");
         // Simulate the prior schema, preserving an existing stay. Re-initialization must be additive.
-        var old=new BoardStore(Path.Combine(root,"old-schema.db"));await old.InitializeAsync();
+        var old=new BoardStore(Path.Combine(root,"old-schema.db"));await old.InitializeAsync(24);
         using(var db=new SqliteConnection($"Data Source={old.DatabasePath}")){db.Open();using var cmd=db.CreateCommand();cmd.CommandText="ALTER TABLE BoardStates DROP COLUMN DefaultPriceCents; DROP INDEX IX_Stays_BillCover; ALTER TABLE GuestRegistrations DROP COLUMN SalePriceCents; DROP INDEX IX_GuestRegistrations_BillTime; DROP INDEX IF EXISTS IX_Stays_Suggest; DROP INDEX IF EXISTS IX_Stays_TextScan; DROP INDEX IF EXISTS IX_Stays_ShortText; DROP INDEX IF EXISTS IX_Stays_Page; DROP INDEX IF EXISTS IX_Stays_VisibleId; DROP INDEX IF EXISTS IX_Stays_StatusId; DROP INDEX IF EXISTS IX_Stays_Identity; ALTER TABLE GuestRegistrations DROP COLUMN DeletedAtUtc; DROP TABLE SecuritySettings;";cmd.ExecuteNonQuery();}
-        await old.InitializeAsync();await old.InitializeAsync();assert((await old.ReadAsync()).Rooms.Count==24&&!(await old.HasPasswordAsync()),"old schema upgrades without resetting rooms or installing a default password");
+        await old.InitializeAsync(24);await old.InitializeAsync(24);assert((await old.ReadAsync()).Rooms.Count==24&&!(await old.HasPasswordAsync()),"old schema upgrades without resetting rooms or installing a default password");
     }
 }

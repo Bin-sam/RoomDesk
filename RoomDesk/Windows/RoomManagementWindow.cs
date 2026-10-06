@@ -54,7 +54,7 @@ public sealed class RoomManagementWindow : Window
         deleteRoom.Click+=async(_,_)=>{if(saving||table.SelectedItem is not RoomCard room){feedback.Text="请先选择房间。";return;}saving=true;try{if(room.IsDeleted){await Task.Run(()=>store.RestoreRoomAsync(room.Id,room.Version));}else{await PasswordPrompt.RunAsync(this,store,$"删除 {room.Number} 号房（历史保留，可恢复）",password=>Task.Run(()=>store.DeleteRoomAsync(room.Id,room.Version,password)));}await LoadAsync();}catch(Exception ex){feedback.Text=ex.Message;}finally{saving=false;}};
         var defaultPrice = new TextBox();
         var number = new TextBox(); var floor = new TextBox { Text = "1" };
-        var type = new RoomTypeField(store,"标准间",false);
+        var type = new RoomTypeField(store,"标准双人间",false);
         var batch = new CheckBox {Content="批量新增",Margin=new Thickness(0,14,0,0)};form.Children.Add(batch);
         number.ToolTip="单间：401；批量：401-408、410。每批最多 200 间。";
         number.AcceptsReturn=true;number.MaxHeight=100;number.MaxLength=5000;

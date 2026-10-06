@@ -33,7 +33,7 @@ public sealed partial class BoardStore
         } catch { connection.Dispose();throw; }
     }
 
-    public async Task InitializeAsync(int seedCount = 24)
+    public async Task InitializeAsync(int? seedCount = null)
     {
         await gate.WaitAsync();
         try
@@ -55,7 +55,9 @@ public sealed partial class BoardStore
                 """);
             await UpgradeAsync(db);
             if (await db.Rooms.AnyAsync()) return;
-            for (int i = 0; i < seedCount; i++)
+            if(seedCount is null) SeedDefaultRooms(db);
+            // Explicit counts are synthetic fixtures for tests and benchmarks only.
+            for (int i = 0; i < (seedCount ?? 0); i++)
             {
                 int floor = i / 8 + 1;
                 var room = new Room { RoomNumber = floor * 100 + i % 8 + 1, FloorNumber = floor,

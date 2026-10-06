@@ -4,7 +4,7 @@ static class LongevityChecks
 {
     public static async Task Run(string root,Action<bool,string> check,Func<Func<Task>,string,Task> rejected)
     {
-        var store=new BoardStore(Path.Combine(root,"durable.db"));await store.InitializeAsync();
+        var store=new BoardStore(Path.Combine(root,"durable.db"));await store.InitializeAsync(24);
         await store.SetHotelNameAsync("  云栖酒店  ");check(await store.ReadHotelNameAsync()=="云栖酒店","hotel name trimmed and saved");
         await rejected(()=>store.SetHotelNameAsync(" "),"blank hotel name rejected");await rejected(()=>store.SetHotelNameAsync(new string('x',61)),"long hotel name rejected");
         const string password="Longevity-test-only-2026";await store.SetPasswordAsync(password);
@@ -39,14 +39,14 @@ static class LongevityChecks
         await store.DeleteRoomAsync(added.Id,added.Version,password);
         var deleted=(await store.ReadAsync(true)).Rooms.Single(r=>r.Id==room.Id);check(deleted.IsDeleted,"management can see deleted room");
         await store.RestoreRoomAsync(deleted.Id,deleted.Version);check((await store.ReadAsync()).Rooms.Single(r=>r.Id==room.Id).StatusKey=="dirty","restored room requires cleaning");
-        var reopened=new BoardStore(store.DatabasePath);await reopened.InitializeAsync();check(await reopened.ReadHotelNameAsync()=="云栖酒店","hotel name persists across restart");
+        var reopened=new BoardStore(store.DatabasePath);await reopened.InitializeAsync(24);check(await reopened.ReadHotelNameAsync()=="云栖酒店","hotel name persists across restart");
         check((await reopened.ReadStorageInfoAsync()) is {JournalMode:"wal",Synchronous:2},"every opened connection uses WAL FULL durable commits");
         check((await store.SearchStaysAsync("%_引号\"")).Total==1,"indexed search treats wildcard and quote characters literally");
         await reopened.MaintainAsync();check(reopened.MaintenanceError==null&&File.Exists(reopened.LastAutomaticBackup),"incremental automatic backup succeeds");
-        var backup=new BoardStore(reopened.LastAutomaticBackup!);await backup.InitializeAsync();check(await backup.ReadHotelNameAsync()=="云栖酒店"&&(await backup.SearchStaysAsync()).Total==1,"automatic backup opens with hotel name and history intact");
+        var backup=new BoardStore(reopened.LastAutomaticBackup!);await backup.InitializeAsync(24);check(await backup.ReadHotelNameAsync()=="云栖酒店"&&(await backup.SearchStaysAsync()).Total==1,"automatic backup opens with hotel name and history intact");
         var before=reopened.LastAutomaticBackup;await reopened.MaintainAsync();check(reopened.LastAutomaticBackup==before,"daily backup is reused on repeated maintenance");
         // Additive upgrade from a database without new room lifecycle/name/search schema.
         using(var db=new SqliteConnection("Data Source="+store.DatabasePath)){db.Open();using var cmd=db.CreateCommand();cmd.CommandText="ALTER TABLE BoardStates DROP COLUMN IsDeleted; DROP TABLE HotelSettings; DROP TRIGGER StaySearch_insert; DROP TRIGGER StaySearch_delete; DROP TRIGGER StaySearch_update; DROP TABLE StaySearch;";cmd.ExecuteNonQuery();}
-        await reopened.InitializeAsync();check((await reopened.SearchStaysAsync("历史测试")).Total==1,"upgrade rebuilds historical search index without losing stays");
+        await reopened.InitializeAsync(24);check((await reopened.SearchStaysAsync("历史测试")).Total==1,"upgrade rebuilds historical search index without losing stays");
     }
 }

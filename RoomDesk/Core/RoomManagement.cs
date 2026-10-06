@@ -7,7 +7,7 @@ namespace RoomDesk.Core;
 
 public sealed partial class BoardStore
 {
-    public static readonly IReadOnlyList<string> DefaultRoomTypes = new[]{"标准间","豪华房","行政套房","贵宾套房","顶层套房"};
+    public static readonly IReadOnlyList<string> DefaultRoomTypes = new[]{"标准双人间","豪华单人房","豪华双人房","商务双人房【棋牌】","商务套房"};
     public static string ValidateRoomType(string? type)
     {
         var value=(type??"").Trim();
