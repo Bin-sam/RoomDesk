@@ -100,13 +100,13 @@ public sealed record RoomCard(int Id, int Number, int Floor, string Type, string
     public string Subtitle => $"{Type} · {Floor} 楼";
     public string Color => StatusKey switch
     {
-        "ready" => "#237B66", "occupied" => "#426AB2", "reserved" => "#AA7931",
-        "dirty" => "#B26D3D", "maintenance" => "#8362A6", _ => "#707785"
+        "ready" => "#075C40", "occupied" => "#124BA6", "reserved" => "#754400",
+        "dirty" => "#9B300C", "maintenance" => "#62248C", _ => "#3D4858"
     };
     public string SoftColor => StatusKey switch
     {
-        "ready" => "#EFF8F4", "occupied" => "#F0F4FD", "reserved" => "#FCF7EA",
-        "dirty" => "#FFF3EB", "maintenance" => "#F6F0FB", _ => "#F0F1F3"
+        "ready" => "#E0F4E9", "occupied" => "#E4EDFF", "reserved" => "#FFF0C9",
+        "dirty" => "#FFE5D6", "maintenance" => "#EEE0FA", _ => "#E2E6ED"
     };
 }
 public sealed record ActionOption(string Key, string Label);

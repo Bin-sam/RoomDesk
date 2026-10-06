@@ -7,13 +7,13 @@ namespace RoomDesk.Core;
 public sealed record SoftwareRelease(string Tag,string Version,string Notes,string Url,string DownloadUrl,string Sha256,long Size);
 public sealed class SoftwareUpdates
 {
-    public const string CurrentTag="roomdesk-v0.8.1-preview.1";
-    public const string CurrentVersion="0.8.1";
+    public const string CurrentTag="roomdesk-v0.8.2-preview.1";
+    public const string CurrentVersion="0.8.2";
     public const string Repository="Bin-sam/RoomDesk";
     private static readonly HttpClient client=CreateClient();
     private readonly HttpClient http;
     public SoftwareUpdates(HttpClient? clientOverride=null){http=clientOverride??client;}
-    private static HttpClient CreateClient(){var c=new HttpClient{Timeout=TimeSpan.FromMinutes(15)};c.DefaultRequestHeaders.UserAgent.ParseAdd("RoomDesk/0.8.1");return c;}
+    private static HttpClient CreateClient(){var c=new HttpClient{Timeout=TimeSpan.FromMinutes(15)};c.DefaultRequestHeaders.UserAgent.ParseAdd("RoomDesk/0.8.2");return c;}
     public static (Version Version,int Revision)? ParseTag(string tag){
         var m=Regex.Match(tag,@"^roomdesk-v(\d+\.\d+\.\d+)(?:-preview\.(\d+))?$");
         if(!m.Success||!Version.TryParse(m.Groups[1].Value,out var version))return null;

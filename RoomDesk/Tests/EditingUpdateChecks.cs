@@ -45,11 +45,11 @@ static class EditingUpdateChecks
         var data=Encoding.UTF8.GetBytes("synthetic installer test payload");var sha=Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
         object Release(string tag,string version,string? digest=null,string? url=null,bool draft=false)=>new{tag_name=tag,draft,body="升级说明",assets=new[]{new{name=$"RoomDesk-Setup-{version}-win-x64.exe",state="uploaded",digest=digest??"sha256:"+sha,browser_download_url=url??$"https://github.com/Bin-sam/RoomDesk/releases/download/{tag}/RoomDesk-Setup-{version}-win-x64.exe",size=data.Length}}};
         string List(params object[] rows)=>JsonSerializer.Serialize(rows);
-        check(SoftwareUpdates.SelectRelease(List(Release(SoftwareUpdates.CurrentTag,"0.8.1")))==null,"updater ignores current version");
-        check(SoftwareUpdates.SelectRelease(List(Release(SoftwareUpdates.CurrentTag,SoftwareUpdates.CurrentVersion)),"roomdesk-v0.8.0-preview.1")?.Tag==SoftwareUpdates.CurrentTag,"0.8.0 updater detects 0.8.1 patch release");
+        check(SoftwareUpdates.SelectRelease(List(Release(SoftwareUpdates.CurrentTag,"0.8.2")))==null,"updater ignores current version");
+        check(SoftwareUpdates.SelectRelease(List(Release(SoftwareUpdates.CurrentTag,SoftwareUpdates.CurrentVersion)),"roomdesk-v0.8.0-preview.1")?.Tag==SoftwareUpdates.CurrentTag,"0.8.0 updater detects 0.8.2 patch release");
         var selected=SoftwareUpdates.SelectRelease(List(Release("roomdesk-v0.9.0-preview.2","0.9.0"),Release("roomdesk-v0.9.0","0.9.0"),Release("roomdesk-v1.0.0","1.0.0",draft:true)));
         check(selected?.Tag=="roomdesk-v0.9.0","updater prefers stable and ignores draft releases");
-        check(SoftwareUpdates.SelectRelease(List(Release("roomdesk-v0.8.1-preview.2","0.8.1")))!=null,"updater recognizes higher preview revision");
+        check(SoftwareUpdates.SelectRelease(List(Release("roomdesk-v0.8.2-preview.2","0.8.2")))!=null,"updater recognizes higher preview revision");
         check(SoftwareUpdates.SelectRelease(List(Release("roomdesk-v0.7.0-preview.9","0.7.0")))==null,"updater never downgrades");
         check(SoftwareUpdates.SelectRelease(List(Release("roomdesk-v0.9.0","0.9.0",digest:"bad")))==null,"updater ignores unverified installer metadata");
         check(SoftwareUpdates.SelectRelease(List(Release("roomdesk-v0.9.0","0.9.0",url:"https://example.com/payload.exe")))==null,"updater rejects installer URLs outside this release");

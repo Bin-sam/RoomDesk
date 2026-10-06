@@ -8,7 +8,7 @@ def records(db):
 with closing(sqlite3.connect(path)) as db:
     if mode=='prepare':
         db.execute("UPDATE HotelSettings SET Name='升级验证酒店' WHERE Id=1")
-        room=db.execute('SELECT Id FROM Rooms WHERE RoomNumber=101').fetchone()[0]
+        room=db.execute('SELECT Id FROM Rooms ORDER BY RoomNumber LIMIT 1').fetchone()[0]
         db.execute('UPDATE BoardStates SET DefaultPriceCents=32100,Occupancy=2,Version=Version+1 WHERE RoomId=?',(room,))
         db.execute("INSERT INTO GuestRegistrations(RoomId,Name,Phone,DocumentType,DocumentNumber,Notes,Platform,CheckedInAtUtc,SalePriceCents) VALUES(?,?,?,?,?,?,?,?,?)",(room,'升级测试住客','TEST-PHONE','其他','UPGRADE-DOC','测试备注','携程','2026-10-01 01:23:00',29900))
         salt=b'isolated-upgrade-test-salt-32-byte'
